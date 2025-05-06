@@ -1,0 +1,19 @@
+[project]
+name = "cort-mcp"
+version = "0.1.0"
+description = "Chain-of-Recursive-Thoughts MCP Server and CLI"
+authors = [{name = "Your Name", email = "your@email.com"}]
+dependencies = [
+    "requests",
+    "pyyaml",
+    "openai",
+    "mcp-server"
+]
+requires-python = ">=3.9"
+
+[project.scripts]
+cort-mcp = "cort_mcp.server:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["cort_mcp"]
