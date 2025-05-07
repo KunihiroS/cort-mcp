@@ -1,18 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "cort-mcp"
 version = "0.1.0"
 description = "Chain-of-Recursive-Thoughts MCP Server and CLI"
-authors = [{name = "Your Name", email = "your@email.com"}]
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "Kunihiro S", email = "kunihiros@gmail.com" }
+]
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
 dependencies = [
     "requests",
     "pyyaml",
     "openai",
-    "mcp-server"
+    "fastmcp>=2.0.0"
 ]
-requires-python = ">=3.9"
 
 [project.scripts]
-cort-mcp = "cort_mcp.server:main"
+cort-mcp = "cort_mcp.server:initialize_and_run_server"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
