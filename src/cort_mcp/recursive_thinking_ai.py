@@ -1,9 +1,20 @@
 import requests
 import json
+import logging
 from typing import List, Dict, Any, Optional
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 class EnhancedRecursiveThinkingChat:
     def __init__(self, api_key: str, model: str, provider: str = "openai"):
+        """Initialize the Enhanced Recursive Thinking Chat.
+        
+        Args:
+            api_key: The API key for the provider
+            model: The model name to use
+            provider: The provider to use ("openai" or "openrouter")
+        """
         self.api_key = api_key
         self.model = model
         self.provider = provider
@@ -24,6 +35,18 @@ class EnhancedRecursiveThinkingChat:
         self.conversation_history = []
 
     def _call_api(self, messages: List[Dict], temperature: float = 0.7, stream: bool = False) -> str:
+        """Make an API call to the provider.
+        
+        Args:
+            messages: The messages to send to the API
+            temperature: The temperature to use
+            stream: Whether to stream the response
+            
+        Returns:
+            The response from the API
+        """
+        logger.debug(f"Making API call with {len(messages)} messages, temperature={temperature}")
+        
         payload = {
             "model": self.model,
             "messages": messages,
@@ -32,21 +55,70 @@ class EnhancedRecursiveThinkingChat:
         if self.provider != "openai":
             payload["reasoning"] = {"max_tokens": 10386}
         try:
+            logger.debug(f"Sending request to {self.base_url}")
             response = requests.post(self.base_url, headers=self.headers, json=payload)
             response.raise_for_status()
-            return response.json()['choices'][0]['message']['content'].strip()
+            content = response.json()['choices'][0]['message']['content'].strip()
+            logger.debug(f"Received response with {len(content)} characters")
+            return content
         except Exception as e:
+            logger.error(f"API Error: {e}")
             return f"Error: Could not get response from API: {e}"
 
+    def _determine_thinking_rounds(self, prompt: str) -> int:
+        """Let the model decide how many rounds of thinking are needed.
+        
+        Args:
+            prompt: The user's prompt
+            
+        Returns:
+            The number of rounds to think (between 1 and 5)
+        """
+        meta_prompt = f"""Given this message: "{prompt}"
+        
+How many rounds of iterative thinking (1-5) would be optimal to generate the best response?
+Consider the complexity and nuance required.
+Respond with just a number between 1 and 5."""
+        
+        messages = [{"role": "user", "content": meta_prompt}]
+        
+        logger.info("=== DETERMINING THINKING ROUNDS ===")
+        response = self._call_api(messages, temperature=0.3, stream=False)
+        logger.info("=" * 50)
+        
+        try:
+            rounds = int(''.join(filter(str.isdigit, response)))
+            return min(max(rounds, 1), 5)  # Between 1 and 5
+        except Exception as e:
+            logger.warning(f"Could not determine rounds, using default: {e}")
+            return 3  # Default to 3 rounds
+            
     def think(self, prompt: str, rounds: Optional[int] = None, num_alternatives: int = 3, details: bool = False) -> Dict[str, Any]:
+        """Process user input with recursive thinking.
+        
+        Args:
+            prompt: The user's prompt
+            rounds: The number of thinking rounds (if None, will be determined automatically)
+            num_alternatives: The number of alternative responses to generate
+            details: Whether to include thinking details in the result
+            
+        Returns:
+            A dictionary with the response and optionally thinking details
+        """
+        # Determine thinking rounds if not specified
+        thinking_rounds = rounds if rounds is not None else self._determine_thinking_rounds(prompt)
+        logger.info(f"\n\n🤔 Thinking... ({thinking_rounds} rounds needed)")
+        
         thinking_history = []
         self.conversation_history.append({"role": "user", "content": prompt})
         messages = self.conversation_history.copy()
-        # ベースプロンプト・レスポンス記録
+        
+        # Generate initial response
+        logger.info("\n=== GENERATING INITIAL RESPONSE ===")
         base_llm_prompt = messages[-1]["content"] if messages else prompt
         base_response = self._call_api(messages, temperature=0.7, stream=False)
         current_best = base_response
-        thinking_rounds = rounds if rounds is not None else 3
+        logger.info("=" * 50)
         # ベース応答も履歴に記録（round=0とする）
         thinking_history.append({
             "round": 0,
@@ -58,11 +130,16 @@ class EnhancedRecursiveThinkingChat:
             "explanation": "Initial base response"
         })
         for r in range(thinking_rounds):
+            logger.info(f"\n=== ROUND {r+1}/{thinking_rounds} ===")
+            
             alternatives = []
             alt_prompts = []
             alt_llm_prompts = []
             alt_llm_responses = []
+            
+            # Generate alternatives
             for i in range(num_alternatives):
+                logger.info(f"\n=== GENERATING ALTERNATIVE {i+1} ===")
                 alt_prompt = f"""Original message: {prompt}\n\nCurrent response: {current_best}\n\nGenerate an alternative response that might be better. Be creative and consider different approaches.\nAlternative response:"""
                 alt_messages = self.conversation_history + [{"role": "user", "content": alt_prompt}]
                 alternative = self._call_api(alt_messages, temperature=0.7 + i * 0.1, stream=False)
@@ -70,22 +147,50 @@ class EnhancedRecursiveThinkingChat:
                 alt_prompts.append(alt_prompt)
                 alt_llm_prompts.append(alt_prompt)
                 alt_llm_responses.append(alternative)
+            # Evaluate responses
+            logger.info("\n=== EVALUATING RESPONSES ===")
             eval_prompt = f"""Original message: {prompt}\n\nEvaluate these responses and choose the best one:\n\nCurrent best: {current_best}\n\nAlternatives:\n{chr(10).join([f"{i+1}. {alt}" for i, alt in enumerate(alternatives)])}\n\nWhich response best addresses the original message? Consider accuracy, clarity, and completeness.\nFirst, respond with ONLY 'current' or a number (1-{len(alternatives)}).\nThen on a new line, explain your choice in one sentence."""
             eval_messages = [{"role": "user", "content": eval_prompt}]
             evaluation = self._call_api(eval_messages, temperature=0.2, stream=False)
-            selection, *explanation = evaluation.split("\n", 1)
-            explanation = explanation[0] if explanation else ""
-            if selection.strip().lower() == "current":
+            logger.info("=" * 50)
+            # Better parsing of evaluation result
+            lines = [line.strip() for line in evaluation.split('\n') if line.strip()]
+            
+            choice = 'current'
+            explanation_text = "No explanation provided"
+            
+            if lines:
+                first_line = lines[0].lower()
+                if 'current' in first_line:
+                    choice = 'current'
+                else:
+                    for char in first_line:
+                        if char.isdigit():
+                            choice = char
+                            break
+                
+                if len(lines) > 1:
+                    explanation_text = ' '.join(lines[1:])
+            
+            if choice == 'current':
                 selected_response = current_best
                 selected_idx = -1
+                logger.info(f"\n    ✓ Kept current response: {explanation_text}")
             else:
                 try:
-                    idx = int(selection.strip()) - 1
-                    selected_response = alternatives[idx]
-                    selected_idx = idx
+                    idx = int(choice) - 1
+                    if 0 <= idx < len(alternatives):
+                        selected_response = alternatives[idx]
+                        selected_idx = idx
+                        logger.info(f"\n    ✓ Selected alternative {idx+1}: {explanation_text}")
+                    else:
+                        selected_response = current_best
+                        selected_idx = -1
+                        logger.info(f"\n    ✓ Invalid selection, keeping current response")
                 except Exception:
                     selected_response = current_best
                     selected_idx = -1
+                    logger.info(f"\n    ✓ Could not parse selection, keeping current response")
             thinking_history.append({
                 "round": r + 1,
                 "llm_prompt": alt_llm_prompts,
@@ -93,10 +198,20 @@ class EnhancedRecursiveThinkingChat:
                 "response": selected_response,
                 "alternatives": alternatives,
                 "selected": selected_idx,
-                "explanation": explanation
+                "explanation": explanation_text
             })
             current_best = selected_response
+        # Add to conversation history
         self.conversation_history.append({"role": "assistant", "content": current_best})
+        
+        # Keep conversation history manageable
+        if len(self.conversation_history) > 10:
+            self.conversation_history = self.conversation_history[-10:]
+        
+        logger.info("\n" + "=" * 50)
+        logger.info("🎯 FINAL RESPONSE SELECTED")
+        logger.info("=" * 50)
+        
         result = {
             "response": current_best
         }
