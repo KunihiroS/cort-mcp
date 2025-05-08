@@ -109,16 +109,34 @@ cort-server --cli --prompt "質問" --model "openrouter/mistral-7b" --json
 
 ---
 
-## 進捗・現状レポート（2025-05-03 更新）
+## 進捗・現状レポート（2025-05-08 更新）
 
 ### ✅ MCPサーバー起動・MCP Hostからの呼び出し成功
 - それほど長くない入力の応答に約1~2分程度かかる
+### ✅ logging機能の動作確認
+- 引数によるlog=on/offの動作確認
+- 引数による指定PATHへlogfile保存確認
+### ✅ 思考ラウンドの詳細出力確認
+- cort_think_detailsのdetails出力のYAML形式の内容確認
+- 各ラウンドのLLMからの出力内容を出力
 
 
 #### 📝 ユーザー追加分TODO
-- CLI による呼び出し機能の削除（MCP Server専用化）
-- 軽量モデルへの変更（現状の4.1 miniだと時間がかかりすぎるため、より軽いモデルを試す）
-- 思考過程における実際のLLMの出力を details tool の response に含むようにする
+- OpenRouterおよびOpenAIのプロバイダ指定及びモデル指定引数の動作確認
+- ラウンドごとのLLMからの出力ロジックを現状のtemperatureだけでなく別の視点を検討してみる
+---
+
+## コアロジック改変履歴（recursive_thinking_ai.py）
+
+- オリジナル: [PhialsBasement/Chain-of-Recursive-Thoughts](https://github.com/PhialsBasement/Chain-of-Recursive-Thoughts)
+- 本プロジェクトでは以下の主な改変を実施：
+    - 各ラウンドでのLLMプロンプト・レスポンス履歴（thinking_history）を詳細に記録し、details toolのレスポンスとして返せるように拡張
+    - OpenAIとOpenRouter両対応のAPI呼び出しに変更（プロバイダ切り替え機能追加）
+    - APIエラー時のフォールバックや環境変数によるAPIキー管理を追加
+    - サーバー連携用のインターフェースを整理
+    - その他、ロギングやエラーハンドリングの強化
+- 元実装の基本構造（ラウンドごとの代替案生成→評価→選択）は維持しつつ、透明性・拡張性・運用性を高めるための実装改良を行っています
+
 ---
 
 ### 起動例
