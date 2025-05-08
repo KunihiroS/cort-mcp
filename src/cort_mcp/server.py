@@ -152,10 +152,7 @@ server = FastMCP(
 # ツール定義はデコレータで行う
 @server.tool(
     name="cort.think.simple",
-    description="シンプルな再帰的思考AI応答を返す"
-)
-async def cort_think_simple(prompt: str, model: str = None, provider: str = None):
-    """
+    description="""
     シンプルな再帰的思考AI応答を返すMCPツール。
 
     機能:
@@ -178,6 +175,8 @@ async def cort_think_simple(prompt: str, model: str = None, provider: str = None
         - 明示的にnullや空文字を渡すとAPI側でエラーとなる場合があります。
         - エラー時はOpenAIのデフォルトモデルで自動フォールバックします。
     """
+)
+async def cort_think_simple(prompt: str, model: str = None, provider: str = None):
     resolved_model, resolved_provider, api_key = resolve_model_and_provider({"model": model, "provider": provider})
     py_logging.info(f"cort_think_simple called: prompt={prompt} model={resolved_model} provider={resolved_provider}")
     if not prompt:
@@ -220,10 +219,7 @@ async def cort_think_simple(prompt: str, model: str = None, provider: str = None
 
 @server.tool(
     name="cort.think.details",
-    description="思考過程の詳細も含めて返す再帰的思考AIツール"
-)
-async def cort_think_details(prompt: str, model: str = None, provider: str = None):
-    """
+    description="""
     思考過程の詳細も含めて返す再帰的思考AIツール。
 
     機能:
@@ -247,6 +243,8 @@ async def cort_think_details(prompt: str, model: str = None, provider: str = Non
         - 明示的にnullや空文字を渡すとAPI側でエラーとなる場合があります。
         - エラー時はOpenAIのデフォルトモデルで自動フォールバックします。
     """
+)
+async def cort_think_details(prompt: str, model: str = None, provider: str = None):
     resolved_model, resolved_provider, api_key = resolve_model_and_provider({"model": model, "provider": provider})
     py_logging.info(f"cort_think_details called: prompt={prompt} model={resolved_model} provider={resolved_provider}")
     if not prompt:

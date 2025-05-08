@@ -119,8 +119,6 @@ cort-server --cli --prompt "質問" --model "openrouter/mistral-7b" --json
 - CLI による呼び出し機能の削除（MCP Server専用化）
 - 軽量モデルへの変更（現状の4.1 miniだと時間がかかりすぎるため、より軽いモデルを試す）
 - 思考過程における実際のLLMの出力を details tool の response に含むようにする
-- Log出力設定を引数指定にする (現状絶対PATHがハードコーディングされている)
-
 ---
 
 ### 起動例
@@ -145,6 +143,53 @@ stdio_server session established. Running server.run...
 - テストは `tests/` 配下
 
 ---
+
+## MCP Host Configuration
+
+When running this MCP Server, you **must explicitly specify the log output mode and (if enabled) the absolute log file path via command-line arguments**.
+
+- `--log=off` : Disable all logging (no logs are written)
+- `--log=on --logfile=/absolute/path/to/logfile.log` : Enable logging and write logs to the specified absolute file path
+- Both arguments are **required** when logging is enabled. The server will exit with an error if either is missing, the path is not absolute, or if invalid values are given.
+
+### Example: Logging Disabled
+```json
+"CoRT-chain-of-recursive-thinking": {
+  "command": "pipx",
+  "args": ["run", "cort-mcp", "--log=off"],
+  "env": {
+    "OPENAI_API_KEY": "{apikey}"
+  }
+}
+```
+
+### Example: Logging Enabled (absolute log file path required)
+```json
+"CoRT-chain-of-recursive-thinking": {
+  "command": "pipx",
+  "args": ["run", "cort-mcp", "--log=on", "--logfile=/workspace/logs/cort-mcp.log"],
+  "env": {
+    "OPENAI_API_KEY": "{apikey}"
+  }
+}
+```
+
+> **Note:**
+> - When logging is enabled, logs are written **only** to the specified absolute file path. Relative paths or omission of `--logfile` will cause an error.
+> - When logging is disabled, no logs are output.
+> - If the required arguments are missing or invalid, the server will not start and will print an error message.
+> - The log file must be accessible and writable by the MCP Server process.
+> - If you have trouble to run this server, it may be due to caching older version of cort-mcp. Please try to run it with the latest version (set `x.y.z` to the latest version) of cort-mcp by the below setting.
+
+```json
+"CoRT-chain-of-recursive-thinking": {
+  "command": "pipx",
+  "args": ["run", "cort-mcp==x.y.z", "--log=off"],
+  "env": {
+    "OPENAI_API_KEY": "{apikey}"
+  }
+}
+```
 
 ## ライセンス
 MIT
