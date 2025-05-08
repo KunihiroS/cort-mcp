@@ -45,79 +45,76 @@ except ImportError as e:
         raise
 
 # デフォルト値を定数として定義
-DEFAULT_MODEL = "gpt-4.1-mini"
+DEFAULT_MODEL = "gpt-4.1-nano"
 DEFAULT_PROVIDER = "openai"
 
-# ロギング設定
+# --- Logging Setup ---
 def setup_logging(log: str, logfile: str):
-    # 絶対パスでログファイルを指定
-    abs_logfile = "/home/kunipiro/DEV/cort-mcp/cort-mcp.log"
-    
-    # 起動元の情報をログに出力
-    with open("/home/kunipiro/DEV/cort-mcp/startup-debug.log", "a") as f:
-        import os
-        import sys
-        import datetime
-        f.write(f"\n--- Startup at {datetime.datetime.now()} ---\n")
-        f.write(f"Current directory: {os.getcwd()}\n")
-        f.write(f"Python executable: {sys.executable}\n")
-        f.write(f"Arguments: {sys.argv}\n")
-        f.write(f"Environment: OPENAI_API_KEY={'*' * 5 if os.getenv('OPENAI_API_KEY') else 'Not set'}\n")
-        f.write(f"Environment: OPENROUTER_API_KEY={'*' * 5 if os.getenv('OPENROUTER_API_KEY') else 'Not set'}\n")
-    
-    # ログディレクトリが存在しない場合は作成
-    log_dir = os.path.dirname(abs_logfile)
-    if not os.path.exists(log_dir):
-        try:
-            os.makedirs(log_dir, exist_ok=True)
-        except Exception as e:
-            import logging as py_logging
-            py_logging.basicConfig(level=py_logging.DEBUG)
-            py_logging.exception(f"[FATAL] Failed to create log directory: {log_dir} error={e}")
-            print(f"[FATAL] Failed to create log directory: {log_dir} error={e}", file=sys.stderr)
+    import logging
+    import sys
+    import os
+    if log == "on":
+        if not logfile or not logfile.startswith("/"):
+            print("[FATAL] --logfile must be an absolute path when --log=on", file=sys.stderr)
             sys.exit(1)
-    try:
-        import logging as py_logging
-        # ログレベルをDEBUGに設定し、フォーマットを詳細にする
-        py_logging.basicConfig(
-            level=py_logging.DEBUG,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        file_handler = py_logging.FileHandler(abs_logfile, mode="a", encoding="utf-8")
-        file_handler.setLevel(py_logging.DEBUG)
-        formatter = py_logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        file_handler.setFormatter(formatter)
-        py_logging.getLogger().addHandler(file_handler)
-        
-        # MCPライブラリのロガーもDEBUGレベルに設定
-        py_logging.getLogger('mcp').setLevel(py_logging.DEBUG)
-    except Exception as e:
-        import logging as py_logging
-        py_logging.basicConfig(level=py_logging.DEBUG)
-        py_logging.exception(f"[FATAL] Failed to open logfile: {abs_logfile} error={e}")
-        print(f"[FATAL] Failed to open logfile: {abs_logfile} error={e}", file=sys.stderr)
+        log_dir = os.path.dirname(logfile)
+        if not os.path.exists(log_dir):
+            try:
+                os.makedirs(log_dir, exist_ok=True)
+            except Exception as e:
+                print(f"[FATAL] Failed to create log directory: {log_dir} error={e}", file=sys.stderr)
+                sys.exit(1)
+        try:
+            # --- Full handler initialization ---
+            root_logger = logging.getLogger()
+            for handler in root_logger.handlers[:]:
+                root_logger.removeHandler(handler)
+            root_logger.handlers.clear()
+            root_logger.setLevel(logging.DEBUG)
+
+            # Add only FileHandler to root logger
+            file_handler = logging.FileHandler(logfile, mode="a", encoding="utf-8")
+            file_handler.setLevel(logging.DEBUG)
+            formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+            file_handler.setFormatter(formatter)
+            root_logger.addHandler(file_handler)
+
+            # Also add StreamHandler (stdout)
+            stream_handler = logging.StreamHandler(sys.stdout)
+            stream_handler.setLevel(logging.DEBUG)
+            stream_handler.setFormatter(formatter)
+            root_logger.addHandler(stream_handler)
+
+            # Explicitly call flush
+            file_handler.flush()
+
+            # Set global logger as well
+            specific_logger = logging.getLogger("cort-mcp-server")
+            specific_logger.handlers.clear()  # Clear existing handlers
+            specific_logger.setLevel(logging.DEBUG)
+            specific_logger.addHandler(file_handler)
+            specific_logger.addHandler(stream_handler)
+            specific_logger.propagate = False
+
+            specific_logger.debug(f"=== MCP Server log initialized: {logfile} ===")
+            print(f"[INFO] MCP Server log initialized: {logfile}")
+            if os.path.exists(logfile):
+                print(f"[INFO] Log file created: {logfile}")
+            else:
+                print(f"[WARN] Log file NOT created: {logfile}")
+
+            return specific_logger
+        except Exception as e:
+            print(f"[FATAL] Failed to create log file: {logfile} error={e}", file=sys.stderr)
+            sys.exit(1)
+    elif log == "off":
+        # Completely disable logging functionality
+        logging.disable(logging.CRITICAL)
+        print("[INFO] Logging disabled (--log=off)")
+        return None
+    else:
+        print("[FATAL] --log must be 'on' or 'off'", file=sys.stderr)
         sys.exit(1)
-    # --- 以前の絶対パスチェック・ディレクトリ生成・FileHandler部分はコメントアウトで残す ---
-    # if log == "on":
-    #     if not logfile or not logfile.startswith("/"):
-    #         print("[FATAL] --logfile must be an absolute path when --log=on", file=sys.stderr)
-    #         sys.exit(1)
-    #     log_dir = os.path.dirname(logfile)
-    #     if not os.path.exists(log_dir):
-    #         try:
-    #             os.makedirs(log_dir, exist_ok=True)
-    #         except Exception as e:
-    #             print(f"[FATAL] Failed to create log directory: {log_dir} error={e}", file=sys.stderr)
-    #             sys.exit(1)
-    #     try:
-    #         file_handler = logging.FileHandler(logfile, mode="a", encoding="utf-8")
-    #         file_handler.setLevel(logging.DEBUG)
-    #         import logging as py_logging
-    #         py_logging.getLogger().addHandler(file_handler)
-    #     except Exception as e:
-    #         print(f"[FATAL] Failed to open logfile: {logfile} error={e}", file=sys.stderr)
-    #         sys.exit(1)
 
 def resolve_model_and_provider(params):
     # params: dict
@@ -158,12 +155,28 @@ server = FastMCP(
     description="シンプルな再帰的思考AI応答を返す"
 )
 async def cort_think_simple(prompt: str, model: str = None, provider: str = None):
-    """シンプルな再帰的思考AI応答を返す
-    
-    Args:
-        prompt: AIへの入力プロンプト
-        model: モデル名（例: "gpt-4.1-mini", "qwen/qwen3-235b-a22b:free" など）
-        provider: "openai" または "openrouter"
+    """
+    シンプルな再帰的思考AI応答を返すMCPツール。
+
+    機能:
+        指定されたプロンプトに対して、再帰的思考AIの応答（最終回答のみ）を返します。
+
+    パラメータ:
+        prompt (str, 必須): AIへの入力プロンプト。
+        model (str, 任意): 利用するモデル名（例: "gpt-4.1-nano", "qwen/qwen3-235b-a22b:free" など）。未指定の場合はデフォルトモデルを利用。
+        provider (str, 任意): "openai" または "openrouter"。未指定の場合はデフォルトプロバイダーを利用。
+
+    戻り値:
+        dict: {
+            "response": AIの応答（string）,
+            "model": 実際に使用されたモデル名（string）,
+            "provider": 実際に使用されたプロバイダー名（string）
+        }
+
+    注意:
+        - オプションパラメータ（model, provider）は未指定時はパラメータごと省略してください。
+        - 明示的にnullや空文字を渡すとAPI側でエラーとなる場合があります。
+        - エラー時はOpenAIのデフォルトモデルで自動フォールバックします。
     """
     resolved_model, resolved_provider, api_key = resolve_model_and_provider({"model": model, "provider": provider})
     py_logging.info(f"cort_think_simple called: prompt={prompt} model={resolved_model} provider={resolved_provider}")
@@ -210,12 +223,29 @@ async def cort_think_simple(prompt: str, model: str = None, provider: str = None
     description="思考過程の詳細も含めて返す再帰的思考AIツール"
 )
 async def cort_think_details(prompt: str, model: str = None, provider: str = None):
-    """思考過程の詳細も含めて返す再帰的思考AIツール
-    
-    Args:
-        prompt: AIへの入力プロンプト
-        model: モデル名
-        provider: "openai" または "openrouter"
+    """
+    思考過程の詳細も含めて返す再帰的思考AIツール。
+
+    機能:
+        指定されたプロンプトに対し、再帰的思考AIの応答と、思考履歴や過程（YAML形式）を返します。
+
+    パラメータ:
+        prompt (str, 必須): AIへの入力プロンプト。
+        model (str, 任意): 利用するモデル名。未指定時はデフォルトモデル。
+        provider (str, 任意): "openai" または "openrouter"。未指定時はデフォルトプロバイダー。
+
+    戻り値:
+        dict: {
+            "response": AIの応答（string）,
+            "details": 思考履歴や過程（YAML形式のstring）,
+            "model": 実際に使用されたモデル名（string）,
+            "provider": 実際に使用されたプロバイダー名（string）
+        }
+
+    注意:
+        - オプションパラメータ（model, provider）は未指定時はパラメータごと省略してください。
+        - 明示的にnullや空文字を渡すとAPI側でエラーとなる場合があります。
+        - エラー時はOpenAIのデフォルトモデルで自動フォールバックします。
     """
     resolved_model, resolved_provider, api_key = resolve_model_and_provider({"model": model, "provider": provider})
     py_logging.info(f"cort_think_details called: prompt={prompt} model={resolved_model} provider={resolved_provider}")
@@ -271,28 +301,31 @@ async def cort_think_details(prompt: str, model: str = None, provider: str = Non
 
 def initialize_and_run_server():
     """MCPサーバーを初期化して実行する関数"""
-    setup_logging(log="on", logfile="")
     import logging as py_logging
     py_logging.info("cort-mcp server starting...")
     # MCPサーバーを実行
     server.run()
 
 def main():
-    # 必ず最初にログをセットアップ（絶対パスで固定出力）
-    setup_logging(log="on", logfile="")
     import argparse
+    parser = argparse.ArgumentParser(description="Chain-of-Recursive-Thoughts MCP Server/CLI")
+    parser.add_argument("--log", choices=["on", "off"], required=True, help="Enable or disable logging (on/off)")
+    parser.add_argument("--logfile", type=str, required=False, help="Absolute path to log file (required if --log=on)")
+    parser.add_argument("--prompt", default=None)
+    parser.add_argument("--details", action="store_true")
+    parser.add_argument("--model", default=None)
+    parser.add_argument("--provider", default=None)
+    args = parser.parse_args()
+    if args.log == "on" and not args.logfile:
+        print("[FATAL] --logfile is required when --log=on", file=sys.stderr)
+        sys.exit(1)
+    if args.log == "on" and not args.logfile.startswith("/"):
+        print("[FATAL] --logfile must be an absolute path when --log=on", file=sys.stderr)
+        sys.exit(1)
+    logger = setup_logging(args.log, args.logfile)
     import logging as py_logging
     py_logging.info("cort-mcp main() started")
     try:
-        parser = argparse.ArgumentParser(description="Chain-of-Recursive-Thoughts MCP Server/CLI")
-        parser.add_argument("--log", default="off", choices=["on", "off"])
-        parser.add_argument("--logfile", default="/tmp/cort-mcp.log")
-        parser.add_argument("--prompt", default=None)
-        parser.add_argument("--details", action="store_true")
-        parser.add_argument("--model", default=None)
-        parser.add_argument("--provider", default=None)
-        args = parser.parse_args()
-
         if args.prompt:
             py_logging.info(f"CLI batch mode: prompt={args.prompt} details={args.details} model={args.model} provider={args.provider}")
             params = {}

@@ -60,6 +60,15 @@ cort-server --cli --prompt "質問" --model "openrouter/mistral-7b" --json
 
 ## ツールインターフェイス定義（MCPツール仕様）
 
+> **⚠️ 注意:**
+> オプションパラメータ（`model`や`provider`など）をAI呼び出し時に明示的に`null`や空文字で渡すと、API側でエラーとなる場合があります。
+> 
+> **未指定の場合はパラメータごと省略してください。**
+> 例: Pythonの`None`やJSONの`null`をそのまま渡さず、パラメータ自体を送信しないことを推奨します。
+> 
+> これにより「AI呼び出し時にオプションパラメータへnullを設定し失敗していた問題」を回避できます。
+
+
 ### cort.think.simple
 - **説明:** シンプルな再帰的思考AI応答を返す
 - **パラメータ:**
@@ -110,7 +119,6 @@ cort-server --cli --prompt "質問" --model "openrouter/mistral-7b" --json
 - CLI による呼び出し機能の削除（MCP Server専用化）
 - 軽量モデルへの変更（現状の4.1 miniだと時間がかかりすぎるため、より軽いモデルを試す）
 - 思考過程における実際のLLMの出力を details tool の response に含むようにする
-- Toolの説明の充実（AI呼び出し時にオプションパラメータへ null を設定し失敗していた問題の明確化）
 - Log出力設定を引数指定にする (現状絶対PATHがハードコーディングされている)
 
 ---
