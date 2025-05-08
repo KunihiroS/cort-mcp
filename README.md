@@ -9,7 +9,7 @@ Chain-of-Recursive-Thoughts (CORT) MCPサーバー/CLIツール
 - CLIバッチ・MCPサーバー両対応
 - OpenAI/OpenRouter API両対応
 - pipx/uvxインストール・即コマンド利用可能
-
+- 試行回数は3で固定
 ---
 
 ## ディレクトリ構成
@@ -73,8 +73,20 @@ cort-server --cli --prompt "質問" --model "openrouter/mistral-7b" --json
 - **説明:** シンプルな再帰的思考AI応答を返す
 - **パラメータ:**
     - `prompt` (string, 必須): AIへの入力プロンプト
-    - `model` (string, 任意): モデル名（例: "gpt-4.1-mini", "qwen/qwen3-235b-a22b:free" など）
-    - `provider` (string, 任意): "openai" または "openrouter"（省略時はデフォルト値）
+    - `model` (string, 任意): 
+利用するLLMモデル名を正確に指定してください。
+- **推奨値（OpenAIの場合）**: `"gpt-4.1-nano"`
+- **推奨値（OpenRouterの場合）**: `"meta-llama/llama-4-maverick:free"`
+- **デフォルトモデル**: `gpt-4.1-mini`（OpenAIプロバイダ使用時）
+モデル名は各プロバイダの公式リストに従い、正確に入力してください。
+指定がない場合はプロバイダごとのデフォルトモデルが利用されます。
+
+    - `provider` (string, 任意): 
+利用するAPIプロバイダ名を正確に指定してください。
+- 指定可能値: `"openai"` または `"openrouter"`
+- **デフォルトプロバイダ**: `openai`
+プロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。
+指定がない場合はデフォルトプロバイダが利用されます。
 - **戻り値:**
     - `response` (string): AIの応答
     - `model` (string): 使用モデル名
@@ -110,7 +122,6 @@ cort-server --cli --prompt "質問" --model "openrouter/mistral-7b" --json
 ---
 
 ## 進捗・現状レポート（2025-05-08 更新）
-
 ### ✅ MCPサーバー起動・MCP Hostからの呼び出し成功
 - それほど長くない入力の応答に約1~2分程度かかる
 ### ✅ logging機能の動作確認
@@ -119,11 +130,15 @@ cort-server --cli --prompt "質問" --model "openrouter/mistral-7b" --json
 ### ✅ 思考ラウンドの詳細出力確認
 - cort_think_detailsのdetails出力のYAML形式の内容確認
 - 各ラウンドのLLMからの出力内容を出力
-
+### ✅ OpenAI/OpenRouter両対応のAPI呼び出し
+- 動作確認済み
 
 #### 📝 ユーザー追加分TODO
-- OpenRouterおよびOpenAIのプロバイダ指定及びモデル指定引数の動作確認
 - ラウンドごとのLLMからの出力ロジックを現状のtemperatureだけでなく別の視点を検討してみる
+- README刷新 (内容の精緻化、オリジナルリポジトリに関する言及、英語化)
+- コードコメントの英語化
+- pipx起動対応
+- PyPI公開
 ---
 
 ## コアロジック改変履歴（recursive_thinking_ai.py）

@@ -162,8 +162,15 @@ server = FastMCP(
 
     パラメータ:
         prompt (str, 必須): AIへの入力プロンプト。
-        model (str, 任意): 利用するモデル名（例: "gpt-4.1-nano", "qwen/qwen3-235b-a22b:free" など）。未指定の場合はデフォルトモデルを利用。
-        provider (str, 任意): "openai" または "openrouter"。未指定の場合はデフォルトプロバイダーを利用。
+        model (str, 任意): 利用するLLMモデル名を正確に指定してください。
+    - 推奨値（OpenAIの場合）: "gpt-4.1-nano"
+    - 推奨値（OpenRouterの場合）: "meta-llama/llama-4-maverick:free"
+    - デフォルトモデル: gpt-4.1-mini（OpenAIプロバイダ使用時）
+    モデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合はプロバイダごとのデフォルトモデルが利用されます。
+        provider (str, 任意): 利用するAPIプロバイダ名を正確に指定してください。
+    - 指定可能値: "openai" または "openrouter"
+    - デフォルトプロバイダ: openai
+    プロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合はデフォルトプロバイダが利用されます。
 
     戻り値:
         dict: {
@@ -180,8 +187,8 @@ server = FastMCP(
 )
 async def cort_think_simple(
     prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")],
-    model: Annotated[str | None, Field(description="利用するモデル名（例: 'gpt-4.1-nano', 'qwen/qwen3-235b-a22b:free' など）。省略時はデフォルトモデルを利用")]=None,
-    provider: Annotated[str | None, Field(description="APIプロバイダー（'openai' または 'openrouter'）。省略時はデフォルトプロバイダーを利用")]=None
+    model: Annotated[str | None, Field(description="利用するLLMモデル名を正確に指定してください。\n- 推奨値（OpenAIの場合）: 'gpt-4.1-nano'\n- 推奨値（OpenRouterの場合）: 'meta-llama/llama-4-maverick:free'\n- デフォルトモデル: gpt-4.1-mini（OpenAIプロバイダ使用時）\nモデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合はプロバイダごとのデフォルトモデルが利用されます。")]=None,
+    provider: Annotated[str | None, Field(description="利用するAPIプロバイダ名を正確に指定してください。\n- 指定可能値: 'openai' または 'openrouter'\n- デフォルトプロバイダ: openai\nプロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合はデフォルトプロバイダが利用されます。")]=None
 ):
     resolved_model, resolved_provider, api_key = resolve_model_and_provider({"model": model, "provider": provider})
     py_logging.info(f"cort_think_simple called: prompt={prompt} model={resolved_model} provider={resolved_provider}")
@@ -233,8 +240,15 @@ async def cort_think_simple(
 
     パラメータ:
         prompt (str, 必須): AIへの入力プロンプト。
-        model (str, 任意): 利用するモデル名。未指定時はデフォルトモデル。
-        provider (str, 任意): "openai" または "openrouter"。未指定時はデフォルトプロバイダー。
+        model (str, 任意): 利用するLLMモデル名を正確に指定してください。
+    - 推奨値（OpenAIの場合）: "gpt-4.1-nano"
+    - 推奨値（OpenRouterの場合）: "meta-llama/llama-4-maverick:free"
+    - デフォルトモデル: gpt-4.1-mini（OpenAIプロバイダ使用時）
+    モデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合はプロバイダごとのデフォルトモデルが利用されます。
+        provider (str, 任意): 利用するAPIプロバイダ名を正確に指定してください。
+    - 指定可能値: "openai" または "openrouter"
+    - デフォルトプロバイダ: openai
+    プロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合はデフォルトプロバイダが利用されます。
 
     戻り値:
         dict: {
@@ -252,8 +266,8 @@ async def cort_think_simple(
 )
 async def cort_think_details(
     prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")],
-    model: Annotated[str | None, Field(description="利用するモデル名。省略時はデフォルトモデル")]=None,
-    provider: Annotated[str | None, Field(description="APIプロバイダー（'openai' または 'openrouter'）。省略時はデフォルトプロバイダー")]=None
+    model: Annotated[str | None, Field(description="利用するLLMモデル名を正確に指定してください。\n- 推奨値（OpenAIの場合）: 'gpt-4.1-nano'\n- 推奨値（OpenRouterの場合）: 'meta-llama/llama-4-maverick:free'\n- デフォルトモデル: gpt-4.1-mini（OpenAIプロバイダ使用時）\nモデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合はプロバイダごとのデフォルトモデルが利用されます。")]=None,
+    provider: Annotated[str | None, Field(description="利用するAPIプロバイダ名を正確に指定してください。\n- 指定可能値: 'openai' または 'openrouter'\n- デフォルトプロバイダ: openai\nプロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合はデフォルトプロバイダが利用されます。")]=None
 ):
     resolved_model, resolved_provider, api_key = resolve_model_and_provider({"model": model, "provider": provider})
     py_logging.info(f"cort_think_details called: prompt={prompt} model={resolved_model} provider={resolved_provider}")
