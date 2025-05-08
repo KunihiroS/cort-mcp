@@ -319,10 +319,7 @@ def main():
     parser = argparse.ArgumentParser(description="Chain-of-Recursive-Thoughts MCP Server/CLI")
     parser.add_argument("--log", choices=["on", "off"], required=True, help="Enable or disable logging (on/off)")
     parser.add_argument("--logfile", type=str, required=False, help="Absolute path to log file (required if --log=on)")
-    parser.add_argument("--prompt", default=None)
-    parser.add_argument("--details", action="store_true")
-    parser.add_argument("--model", default=None)
-    parser.add_argument("--provider", default=None)
+
     args = parser.parse_args()
     if args.log == "on" and not args.logfile:
         print("[FATAL] --logfile is required when --log=on", file=sys.stderr)
@@ -334,25 +331,9 @@ def main():
     import logging as py_logging
     py_logging.info("cort-mcp main() started")
     try:
-        if args.prompt:
-            py_logging.info(f"CLI batch mode: prompt={args.prompt} details={args.details} model={args.model} provider={args.provider}")
-            params = {}
-            if args.model:
-                params["model"] = args.model
-            if args.provider:
-                params["provider"] = args.provider
-            if args.details:
-                import asyncio
-                result = asyncio.run(cort_think_details(args.prompt, **params))
-            else:
-                import asyncio
-                result = asyncio.run(cort_think_simple(args.prompt, **params))
-            for key, value in result.items():
-                print(f"{key}: {value}")
-        else:
-            py_logging.info("Server mode: waiting for MCP stdio requests...")
-            # FastMCPを使用してサーバーを起動
-            initialize_and_run_server()
+        py_logging.info("Server mode: waiting for MCP stdio requests...")
+        # FastMCPを使用してサーバーを起動
+        initialize_and_run_server()
     except Exception as e:
         py_logging.exception(f"[ERROR] main() failed: {e}")
         return 1
