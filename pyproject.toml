@@ -9,7 +9,7 @@ description = "Chain-of-Recursive-Thoughts MCP Server and CLI"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
-    { name = "Kunihiro S", email = "kunihiros@gmail.com" }
+    { name = "KunihiroS", email = "kunihiros@gmail.com" }
 ]
 license = { text = "MIT" }
 classifiers = [

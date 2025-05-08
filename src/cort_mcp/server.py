@@ -4,6 +4,8 @@ import argparse
 import yaml
 import json
 import logging as py_logging
+from typing import Annotated
+from pydantic import Field
 
 # ロギング初期化
 py_logging.basicConfig(level=py_logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -145,8 +147,8 @@ def get_api_key(provider):
 
 # FastMCPのインスタンスを作成
 server = FastMCP(
-    'Chain-of-Recursive-Thoughts MCP Server',
-    description="再帰的思考AIロジックを提供するCORT MCPサーバー"
+    name="Chain-of-Recursive-Thoughts MCP Server",
+    instructions="Provide deeper recursive thinking and reasoning for the given prompt. Use the MCP Server when you encounter complex problems.",
 )
 
 # ツール定義はデコレータで行う
@@ -176,7 +178,11 @@ server = FastMCP(
         - エラー時はOpenAIのデフォルトモデルで自動フォールバックします。
     """
 )
-async def cort_think_simple(prompt: str, model: str = None, provider: str = None):
+async def cort_think_simple(
+    prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")],
+    model: Annotated[str | None, Field(description="利用するモデル名（例: 'gpt-4.1-nano', 'qwen/qwen3-235b-a22b:free' など）。省略時はデフォルトモデルを利用")]=None,
+    provider: Annotated[str | None, Field(description="APIプロバイダー（'openai' または 'openrouter'）。省略時はデフォルトプロバイダーを利用")]=None
+):
     resolved_model, resolved_provider, api_key = resolve_model_and_provider({"model": model, "provider": provider})
     py_logging.info(f"cort_think_simple called: prompt={prompt} model={resolved_model} provider={resolved_provider}")
     if not prompt:
@@ -244,7 +250,11 @@ async def cort_think_simple(prompt: str, model: str = None, provider: str = None
         - エラー時はOpenAIのデフォルトモデルで自動フォールバックします。
     """
 )
-async def cort_think_details(prompt: str, model: str = None, provider: str = None):
+async def cort_think_details(
+    prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")],
+    model: Annotated[str | None, Field(description="利用するモデル名。省略時はデフォルトモデル")]=None,
+    provider: Annotated[str | None, Field(description="APIプロバイダー（'openai' または 'openrouter'）。省略時はデフォルトプロバイダー")]=None
+):
     resolved_model, resolved_provider, api_key = resolve_model_and_provider({"model": model, "provider": provider})
     py_logging.info(f"cort_think_details called: prompt={prompt} model={resolved_model} provider={resolved_provider}")
     if not prompt:
