@@ -166,44 +166,34 @@ server = FastMCP(
     instructions="Provide deeper recursive thinking and reasoning for the given prompt. Use the MCP Server when you encounter complex problems.",
 )
 
-# ツール定義はデコレータで行う
+# Define tools using decorators
 @server.tool(
     name="cort.think.simple",
     description="""
-    シンプルな再帰的思考AI応答を返すMCPツール。
+    Return a simple recursive thinking AI response.
 
-    機能:
-        指定されたプロンプトに対して、再帰的思考AIの応答（最終回答のみ）を返します。
+    Parameters:
+        prompt (str, required): Input prompt for the AI.
+        model (str, optional): LLM model name. If not specified, uses default.
+        provider (str, optional): API provider name. If not specified, uses default.
 
-    パラメータ:
-        prompt (str, 必須): AIへの入力プロンプト。
-        model (str, 任意): 利用するLLMモデル名を正確に指定してください。
-    - 推奨値（OpenAIの場合）: "gpt-4.1-nano"
-    - 推奨値（OpenRouterの場合）: "meta-llama/llama-4-maverick:free"
-    - デフォルトモデル: mistralai/mistral-small-3.1-24b-instruct:free
-    モデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合、自動的にデフォルトモデルが利用されます。
-        provider (str, 任意): 利用するAPIプロバイダ名を正確に指定してください。
-    - 指定可能値: "openai" または "openrouter"
-    - デフォルトプロバイダ: openrouter
-    プロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合、自動的にデフォルトプロバイダが利用されます。
-
-    戻り値:
+    Returns:
         dict: {
-            "response": AIの応答（string）,
-            "model": 実際に使用されたモデル名（string）,
-            "provider": 実際に使用されたプロバイダー名（string）
+            "response": AI response (string),
+            "model": model name used (string),
+            "provider": provider name used (string)
         }
 
-    注意:
-        - オプションパラメータ（model, provider）は未指定時はパラメータごと省略してください。
-        - 明示的にnullや空文字を渡すとAPI側でエラーとなる場合があります。
-        - API呼び出しエラー時のフォールバック挙動については、README.md の「パラメータ指定とフォールバック処理」セクションを参照してください。
+    Notes:
+        - If model/provider is omitted, defaults are used.
+        - Do not pass null or empty string for optional params.
+        - See README for fallback logic on API errors.
     """
 )
 async def cort_think_simple(
-    prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")],
-    model: Annotated[str | None, Field(description="利用するLLMモデル名を正確に指定してください。\n- 推奨値（OpenAIの場合）: 'gpt-4.1-nano'\n- 推奨値（OpenRouterの場合）: 'meta-llama/llama-4-maverick:free'\n- デフォルトモデル: mistralai/mistral-small-3.1-24b-instruct:free\nモデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合、自動的にデフォルトモデルが利用されます。")]=None,
-    provider: Annotated[str | None, Field(description="利用するAPIプロバイダ名を正確に指定してください。\n- 指定可能値: 'openai' または 'openrouter'\n- デフォルトプロバイダ: openrouter\nプロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合、自動的にデフォルトプロバイダが利用されます。")]=None
+    prompt: Annotated[str, Field(description="Input prompt for the AI (required)")],
+    model: Annotated[str | None, Field(description="LLM model name. If not specified, uses default.")]=None,
+    provider: Annotated[str | None, Field(description="API provider name. If not specified, uses default.")]=None
 ):
     resolved_model, resolved_provider, api_key = resolve_model_and_provider({"model": model, "provider": provider})
     py_logging.info(f"cort_think_simple called: prompt={prompt} model={resolved_model} provider={resolved_provider}")
@@ -334,10 +324,206 @@ async def cort_think_details(
                 "error": f"Failed to process request: {str(e)}. API key for OpenAI is missing (cannot fallback)"
             }
 
-# ツールはデコレータで登録済み
+# --- Mixed LLMリスト定義 ---
+MIXED_LLM_LIST = [
+    {"provider": "openai", "model": "gpt-4.1-mini"},
+    {"provider": "openai", "model": "gpt-4.1-nano"},
+    {"provider": "openai", "model": "gpt-4o"},
+    {"provider": "openai", "model": "gpt-4o-mini"},
+    {"provider": "openrouter", "model": "meta-llama/llama-4-maverick:free"},
+    {"provider": "openrouter", "model": "meta-llama/llama-4-scout:free"},
+    {"provider": "openrouter", "model": "microsoft/phi-4-reasoning:free"},
+    {"provider": "openrouter", "model": "google/gemini-2.0-flash-exp:free"},
+    {"provider": "openrouter", "model": "mistralai/mistral-small-3.1-24b-instruct:free"},
+    {"provider": "openrouter", "model": "google/gemma-3-27b-it:free"},
+]
+
+def get_available_mixed_llms():
+    """APIキーが有効なものだけ返す"""
+    available = []
+    for entry in MIXED_LLM_LIST:
+        api_key = get_api_key(entry["provider"])
+        if api_key:
+            available.append({**entry, "api_key": api_key})
+    return available
+
+import random
+from typing import Dict, Any
+
+def generate_with_mixed_llm(prompt: str, details: bool = False) -> Dict[str, Any]:
+    available_llms = get_available_mixed_llms()
+    if not prompt:
+        py_logging.warning("mixed_llm: prompt is required")
+        return {"error": "prompt is required"}
+    if not available_llms:
+        py_logging.error("mixed_llm: No available LLMs (API key missing)")
+        return {"error": "No available LLMs (API key missing)"}
+
+    # --- ラウンド数・案数は既存ロジックに従いAIが決定 ---
+    # まずベースLLMをランダムで1つ選ぶ
+    base_llm = random.choice(available_llms)
+    chat = EnhancedRecursiveThinkingChat(api_key=base_llm["api_key"], model=base_llm["model"], provider=base_llm["provider"])
+    # ベース応答生成（初回）
+    thinking_rounds = chat._determine_thinking_rounds(prompt)
+    py_logging.info(f"[MIXED] Base LLM: provider={base_llm['provider']}, model={base_llm['model']}, rounds={thinking_rounds}")
+    base_response = chat._call_api([{"role": "user", "content": prompt}], temperature=0.7, stream=False)
+    current_best = base_response
+    thinking_history = [{
+        "round": 0,
+        "llm_prompt": prompt,
+        "llm_response": base_response,
+        "response": base_response,
+        "alternatives": [],
+        "selected": -1,
+        "explanation": "Initial base response",
+        "provider": base_llm["provider"],
+        "model": base_llm["model"]
+    }]
+    # Generate alternatives for each round
+    # Use the same logic as EnhancedRecursiveThinkingChat.think (num_alternatives)
+    num_alternatives = 3
+    if hasattr(chat, 'num_alternatives'):
+        num_alternatives = chat.num_alternatives
+    for r in range(thinking_rounds):
+        py_logging.info(f"[MIXED] === ROUND {r+1}/{thinking_rounds} ===")
+        alternatives = []
+        alt_llm_info = []
+        alt_llm_responses = []
+        alt_llm_prompts = []
+        for i in range(num_alternatives):
+            alt_llm = random.choice(available_llms)
+            alt_prompt = f"""Original message: {prompt}\n\nCurrent response: {current_best}\n\nGenerate an alternative response that might be better. Be creative and consider different approaches.\nAlternative response:"""
+            alt_messages = [{"role": "user", "content": alt_prompt}]
+            alt_chat = EnhancedRecursiveThinkingChat(api_key=alt_llm["api_key"], model=alt_llm["model"], provider=alt_llm["provider"])
+            alt_response = alt_chat._call_api(alt_messages, temperature=0.7 + i * 0.1, stream=False)
+            py_logging.info(f"[MIXED] Alternative {i+1}: provider={alt_llm['provider']}, model={alt_llm['model']}")
+            alternatives.append({
+                "response": alt_response,
+                "provider": alt_llm["provider"],
+                "model": alt_llm["model"]
+            })
+            alt_llm_info.append({"provider": alt_llm["provider"], "model": alt_llm["model"]})
+            alt_llm_responses.append(alt_response)
+            alt_llm_prompts.append(alt_prompt)
+        # 評価はベースLLMで行う（現状CoRTの流儀を踏襲）
+        alts_text = "\n".join([f"{i+1}. {alt['response']}" for i, alt in enumerate(alternatives)])
+        eval_prompt = (
+            f"Original message: {prompt}\n\n"
+            f"Evaluate these responses and choose the best one:\n\n"
+            f"Current best: {current_best}\n\n"
+            f"Alternatives:\n{alts_text}\n\n"
+            f"Which response best addresses the original message? Consider accuracy, clarity, and completeness.\n"
+            f"First, respond with ONLY 'current' or a number (1-{len(alternatives)}).\n"
+            f"Then on a new line, explain your choice in one sentence."
+        )
+        eval_messages = [{"role": "user", "content": eval_prompt}]
+        evaluation = chat._call_api(eval_messages, temperature=0.2, stream=False)
+
+        lines = [line.strip() for line in evaluation.split('\n') if line.strip()]
+        choice = 'current'
+        explanation_text = "No explanation provided"
+        if lines:
+            first_line = lines[0].lower()
+            if 'current' in first_line:
+                choice = 'current'
+            else:
+                for char in first_line:
+                    if char.isdigit():
+                        choice = char
+                        break
+            if len(lines) > 1:
+                explanation_text = ' '.join(lines[1:])
+        if choice == 'current':
+            selected_response = current_best
+            selected_idx = -1
+            py_logging.info(f"[MIXED] Kept current response: {explanation_text}")
+        else:
+            try:
+                idx = int(choice) - 1
+                if 0 <= idx < len(alternatives):
+                    selected_response = alternatives[idx]["response"]
+                    selected_idx = idx
+                    py_logging.info(f"[MIXED] Selected alternative {idx+1}: {explanation_text}")
+                else:
+                    selected_response = current_best
+                    selected_idx = -1
+                    py_logging.info(f"[MIXED] Invalid selection, keeping current response")
+            except Exception:
+                selected_response = current_best
+                selected_idx = -1
+                py_logging.info(f"[MIXED] Could not parse selection, keeping current response")
+        thinking_history.append({
+            "round": r + 1,
+            "llm_prompt": alt_llm_prompts,
+            "llm_response": alt_llm_responses,
+            "response": selected_response,
+            "alternatives": alternatives,
+            "selected": selected_idx,
+            "explanation": explanation_text,
+            "alternatives_llm": alt_llm_info
+        })
+        current_best = selected_response
+    result = {"response": current_best}
+    # detailsの有無に関わらず、最低限のメタ情報は常に返す
+    result["thinking_rounds"] = thinking_rounds
+    result["thinking_history"] = thinking_history
+    # 最終回答を生成したprovider/modelを必ずbestに格納（simple用）
+    last_provider = None
+    last_model = None
+    if thinking_history and isinstance(thinking_history[-1], dict):
+        last_provider = thinking_history[-1].get("provider")
+        last_model = thinking_history[-1].get("model")
+    result["best"] = {
+        "response": current_best,
+        "provider": last_provider,
+        "model": last_model
+    }
+    if details:
+        # 詳細モードのみ追加情報
+        result["alternatives"] = thinking_history[-1]["alternatives"] if thinking_history else []
+    return result
+
+# --- MCPツール定義 ---
+from typing import Annotated
+from pydantic import Field
+
+@server.tool(
+    name="cort.think.simple_mixed_llm",
+    description="Generate recursive thinking AI response using a different LLM (provider/model) for each alternative. No history/details output. Parameters: prompt (str, required). model/provider cannot be specified (randomly selected internally). Provider/model info for each alternative is always logged and included in the output.",
+)
+async def cort_think_simple_mixed_llm(
+    prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")]
+):
+    result = generate_with_mixed_llm(prompt, details=False)
+    # 必要な情報のみ抽出
+    response = result.get("response")
+    best = result.get("best")
+    return {
+        "response": response,
+        "provider": best["provider"],
+        "model": best["model"]
+    }
+
+@server.tool(
+    name="cort.think.details_mixed_llm",
+    description="Generate recursive thinking AI response with full history, using a different LLM (provider/model) for each alternative. Parameters: prompt (str, required). model/provider cannot be specified (randomly selected internally). Provider/model info for each alternative is always logged and included in the output and history.",
+)
+async def cort_think_details_mixed_llm(
+    prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")]
+):
+    result = generate_with_mixed_llm(prompt, details=True)
+    import yaml
+    if "thinking_rounds" in result and "thinking_history" in result:
+        result["details"] = yaml.safe_dump({
+            "thinking_rounds": result["thinking_rounds"],
+            "thinking_history": result["thinking_history"]
+        }, allow_unicode=True, sort_keys=False)
+    return result
+
+# Tools are registered with decorators
 
 def initialize_and_run_server():
-    """MCPサーバーを初期化して実行する関数"""
+    # Initialize and run the MCP server.
     import logging as py_logging
     py_logging.info("cort-mcp server starting...")
     # MCPサーバーを実行
