@@ -5,11 +5,8 @@ Chain-of-Recursive-Thoughts (CORT) MCPサーバー/CLIツール
 ---
 
 ## 特徴
-- 再帰的思考AIロジックをパッケージ本体に集約
-- CLIバッチ・MCPサーバー両対応
 - OpenAI/OpenRouter API両対応
 - pipx/uvxインストール・即コマンド利用可能
-- 試行回数は3で固定
 ---
 
 ## ディレクトリ構成
@@ -39,26 +36,79 @@ uvx install .
 
 ---
 
-## 使い方
-
-### MCPサーバーモード（標準入出力でMCPプロトコルを受け付け）
-```
-cort-server
-```
-
-### CLIバッチモード（1回だけAI応答を返す）
-```
-cort-server --cli --prompt "質問内容"
-```
-
-### モデル指定・JSON出力例
-```
-cort-server --cli --prompt "質問" --model "openrouter/mistral-7b" --json
-```
+## ツールインターフェイス定義（MCPツール仕様）
 
 ---
 
-## ツールインターフェイス定義（MCPツール仕様）
+## Mixed LLM 拡張（多様モデル探索モード）
+
+**概要:**
+従来のCoRT思考フローに「代替案ごとに異なるLLM（モデル＋プロバイダ）をランダム選択する」探索戦略を追加した新ツールです。
+これにより、異種モデルの知見や発想を最大限活用し、より多様な案から最適解を選抜できます。
+
+### mixed LLMツール一覧
+- `cort_think_simple_mixed_llm`
+  履歴や詳細を出力しないシンプルな再帰的思考AI応答（各案ごとにLLMをランダム選択）
+- `cort_think_details_mixed_llm`
+  思考過程や履歴付きの応答（各案ごとにLLMをランダム選択、履歴にも使用モデルを記録）
+
+### mixed LLMで利用されるモデル一覧
+- **OpenAI**
+    - gpt-4.1-mini
+    - gpt-4.1-nano
+    - gpt-4o
+    - o3-mini
+- **OpenRouter**
+    - meta-llama/llama-4-maverick:free
+    - meta-llama/llama-4-scout:free
+    - microsoft/phi-4-reasoning:free
+    - google/gemini-2.0-flash-exp:free
+    - mistralai/mistral-small-3.1-24b-instruct:free
+    - nvidia/llama-3.3-nemotron-super-49b-v1:free
+※API Keyが有効なプロバイダのみ対象となります。
+
+### mixed LLMツールの動作仕様
+- 各代替案ごとに、上記リストからランダムで1つLLM（モデル＋プロバイダ）を選択
+- 生成案ごとに「どのモデル・プロバイダが使われたか」を必ずログに記録
+- detailsモードでは、レスポンスの履歴情報にも「案ごとの使用モデル・プロバイダ」を明示的に含める
+
+### レスポンス例
+```json
+{
+  "alternatives": [
+    {
+      "response": "案1の内容...",
+      "provider": "openai",
+      "model": "gpt-4.1-mini"
+    },
+    {
+      "response": "案2の内容...",
+      "provider": "openrouter",
+      "model": "meta-llama/llama-4-maverick:free"
+    }
+  ],
+  "best": {
+    "response": "ベスト案の内容...",
+    "provider": "openai",
+    "model": "gpt-4o"
+  },
+  "details": "履歴や評価過程（YAML/JSON形式で案ごとのモデル名も記録）"
+}
+```
+
+### ログ出力例
+```
+[INFO] Alternative 1: provider=openai, model=gpt-4.1-mini
+[INFO] Alternative 2: provider=openrouter, model=meta-llama/llama-4-maverick:free
+```
+
+### 注意事項
+- 既存の `cort_think_simple` / `cort_think_details` とは独立した新ツールとして提供
+- APIコスト・レイテンシにご注意ください（複数プロバイダ/モデルを横断的に呼び出します）
+- モデルごとの仕様差やAPI制限により、出力形式や品質が異なる場合があります
+
+---
+
 
 > **⚠️ 注意:**
 > オプションパラメータ（`model`や`provider`など）をAI呼び出し時に明示的に`null`や空文字で渡すと、API側でエラーとなる場合があります。
@@ -70,24 +120,24 @@ cort-server --cli --prompt "質問" --model "openrouter/mistral-7b" --json
 
 
 ### cort.think.simple
-- **説明:** シンプルな再帰的思考AI応答を返す
+- **説明:** 履歴や詳細を出力しないシンプルな再帰的思考AI応答を返す
 - **パラメータ:**
     - `prompt` (string, 必須): AIへの入力プロンプト
     - `model` (string, 任意): 
 利用するLLMモデル名を正確に指定してください。
 - **推奨値（OpenAIの場合）**: `"gpt-4.1-nano"`
 - **推奨値（OpenRouterの場合）**: `"meta-llama/llama-4-maverick:free"`
-- **デフォルトモデル**: `gpt-4.1-mini`（OpenAIプロバイダ使用時）
+- **デフォルトモデル**: `mistralai/mistral-small-3.1-24b-instruct:free`（OpenRouterプロバイダ使用時）
 モデル名は各プロバイダの公式リストに従い、正確に入力してください。
 指定がない場合はプロバイダごとのデフォルトモデルが利用されます。
 
     - `provider` (string, 任意): 
 利用するAPIプロバイダ名を正確に指定してください。
 - 指定可能値: `"openai"` または `"openrouter"`
-- **デフォルトプロバイダ**: `openai`
-プロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。
-指定がない場合はデフォルトプロバイダが利用されます。
-- **戻り値:**
+- **デフォルトプロバイダ**: `openrouter`
+プロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合、自動的にデフォルトプロバイダが利用されます。
+
+    - **戻り値:**
     - `response` (string): AIの応答
     - `model` (string): 使用モデル名
     - `provider` (string): 使用プロバイダー
@@ -104,14 +154,34 @@ cort-server --cli --prompt "質問" --model "openrouter/mistral-7b" --json
     - `provider` (string): 使用プロバイダー
     - `details` (string): 思考履歴や過程のYAML
 
----
+#### パラメータ指定とフォールバック処理
 
-## モデル・APIプロバイダーの切り替え・エラーハンドリング
-- モデル名は「リクエストのparams['model']」またはCLIの`--model`で指定
-- providerはparams['provider']で明示指定可能（省略時はデフォルト）
-- 指定がなければ `server.py` 内の `DEFAULT_MODEL`/`DEFAULT_PROVIDER`（OpenAI/4.1-mini）が使われる
-- **指定されたproviderに該当モデルが無い場合や、その他エラー時も自動的にOpenAIの4.1-mini（デフォルト）でフォールバック動作します**
-- 外部設定ファイル（settings.json等）は一切不要
+本APIでは、`provider` と `model` パラメータの指定に応じて、以下のロジックで実際の使用モデルが決定され、エラー時にはフォールバック処理が行われます。
+
+1.  **プロバイダ (`provider`) の解決**
+    *   **未指定時**: デフォルトプロバイダとして `openrouter` が使用されます。
+    *   **不正な値指定時** (`openai`, `openrouter` 以外): デフォルトプロバイダ `openrouter` にフォールバックします。
+
+2.  **モデル (`model`) の解決**
+    *   **未指定時**:
+        *   解決されたプロバイダが `openrouter` の場合: デフォルトモデル `mistralai/mistral-small-3.1-24b-instruct:free` が使用されます。
+        *   解決されたプロバイダが `openai` の場合: OpenAIのデフォルトモデル（例: `gpt-3.5-turbo`、サーバー側の定義に依存）が使用されます。
+    *   **指定時（プロバイダは有効）**:
+        *   指定されたモデル名が、解決されたプロバイダでそのまま使用されます。
+        *   **重要**: この段階では、指定されたモデル名がプロバイダに実際に存在するかどうかの検証は行われません。
+
+3.  **API呼び出しとエラー時のフォールバック**
+    *   上記ルールで解決されたプロバイダとモデルの組み合わせで、まずAPI呼び出しが試行されます。
+    *   **API呼び出し時にエラーが発生した場合**（例: 指定したモデルがプロバイダに存在しない、APIキー認証エラーなど）:
+        *   **条件1**: エラーが発生した最初の試行のプロバイダが `openai` では**ない**こと。
+        *   **条件2**: 環境変数 `OPENAI_API_KEY` がシステムに設定されていること。
+        *   上記の2つの条件を**両方とも満たす場合**、システムは自動的に **`openai` プロバイダのデフォルトモデル** を使用して処理を再試行します（これがフォールバック処理です）。
+        *   上記条件のいずれか、または両方を満たさない場合（例: 最初の試行が `openai` だった、または `OPENAI_API_KEY` が未設定）、最初のエラーがそのまま最終結果として返され、この種のフォールバックは行われません。
+
+**環境変数に関する注意:**
+*   `openrouter` を利用する場合、`OPENROUTER_API_KEY` が必要です。
+*   `openai` を利用する場合、または上記フォールバック機能を利用する可能性がある場合は `OPENAI_API_KEY` が必要です。
+*   該当するAPIキーが設定されていない場合、API呼び出しは失敗します（フォールバック条件によってはOpenAIへのフォールバックも失敗します）。
 
 ---
 
