@@ -131,6 +131,8 @@ cort-server --cli --prompt "質問" --model "openrouter/mistral-7b" --json
 - cort_think_detailsのdetails出力のYAML形式の内容確認
 - 各ラウンドのLLMからの出力内容を出力
 ### ✅ OpenAI/OpenRouter両対応のAPI呼び出し
+- デフォルトは「openrouter / mistralai/mistral-small-3.1-24b-instruct:free」です
+- OpenAIはAPIキーが無い場合の自動フォールバック先として利用されます
 - 動作確認済み
 
 #### 📝 ユーザー追加分TODO
@@ -151,6 +153,8 @@ cort-server --cli --prompt "質問" --model "openrouter/mistral-7b" --json
 ### 主な改良点
 
 1. **プロバイダ対応の拡張**
+   - デフォルトは「openrouter / mistralai/mistral-small-3.1-24b-instruct:free」
+   - OpenAIはAPIキーが無い場合の自動フォールバック先
    - OpenRouterのみの対応から、OpenAIとOpenRouter両対応のAPI呼び出しに変更
    - `provider`引数で簡単に切り替え可能
 

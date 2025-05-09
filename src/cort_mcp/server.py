@@ -47,8 +47,8 @@ except ImportError as e:
         raise
 
 # デフォルト値を定数として定義
-DEFAULT_MODEL = "gpt-4.1-nano"
-DEFAULT_PROVIDER = "openai"
+DEFAULT_MODEL = "mistralai/mistral-small-3.1-24b-instruct:free"
+DEFAULT_PROVIDER = "openrouter"
 
 # --- Logging Setup ---
 def setup_logging(log: str, logfile: str):
@@ -119,20 +119,35 @@ def setup_logging(log: str, logfile: str):
         sys.exit(1)
 
 def resolve_model_and_provider(params):
+    print("=== resolve_model_and_provider called ===")
+    py_logging.info("=== resolve_model_and_provider called ===")
+    import os
+    # 既存のpy_logging（logging as py_loggingでimport済み）を使う
+    # デバッグ: 環境変数の状態を出力
+    def mask_key(key):
+        if key:
+            return 'SET'
+        return 'NOT_SET'
+    py_logging.info(f"[DEBUG] ENV OPENROUTER_API_KEY={mask_key(os.getenv('OPENROUTER_API_KEY'))}")
+    py_logging.info(f"[DEBUG] ENV OPENAI_API_KEY={mask_key(os.getenv('OPENAI_API_KEY'))}")
     # params: dict
     model = params.get("model")
     provider = params.get("provider")
+    py_logging.info(f"[DEBUG] params: model={model}, provider={provider}")
     if not model:
         model = DEFAULT_MODEL
     if not provider:
         provider = DEFAULT_PROVIDER
+    py_logging.info(f"[DEBUG] after default: model={model}, provider={provider}")
     # ここでAPIキー存在チェック（providerが不正/未設定含む）
     api_key = get_api_key(provider)
+    py_logging.info(f"[DEBUG] get_api_key(provider={provider}) -> {mask_key(api_key)}")
     if not api_key:
         # providerが不正、APIキー無し→デフォルトにフォールバック
         provider = DEFAULT_PROVIDER
         model = DEFAULT_MODEL
         api_key = get_api_key(provider)
+        py_logging.info(f"[DEBUG] fallback: model={model}, provider={provider}, api_key={mask_key(api_key)}")
     # さらに「モデル名がproviderに存在しない」等のチェックはAI側APIで例外発生時に検知
     return model, provider, api_key
 
@@ -187,8 +202,10 @@ server = FastMCP(
 )
 async def cort_think_simple(
     prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")],
-    model: Annotated[str | None, Field(description="利用するLLMモデル名を正確に指定してください。\n- 推奨値（OpenAIの場合）: 'gpt-4.1-nano'\n- 推奨値（OpenRouterの場合）: 'meta-llama/llama-4-maverick:free'\n- デフォルトモデル: gpt-4.1-mini（OpenAIプロバイダ使用時）\nモデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合はプロバイダごとのデフォルトモデルが利用されます。")]=None,
-    provider: Annotated[str | None, Field(description="利用するAPIプロバイダ名を正確に指定してください。\n- 指定可能値: 'openai' または 'openrouter'\n- デフォルトプロバイダ: openai\nプロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合はデフォルトプロバイダが利用されます。")]=None
+    # Annotatedは型ヒントに追加メタ情報（バリデーションや説明文など）を付与するための標準仕組みです
+model: Annotated[str | None, Field(description="利用するLLMモデル名を正確に指定してください。\n- デフォルト: mistralai/mistral-small-3.1-24b-instruct:free（OpenRouterプロバイダ使用時）\n- OpenAI利用時の推奨値: 'gpt-4.1-nano'\n- OpenRouter利用時の推奨値: 'meta-llama/llama-4-maverick:free'\nモデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合はデフォルトモデル（OpenRouter）が利用されます。"\n- 推奨値（OpenAIの場合）: 'gpt-4.1-nano'\n- 推奨値（OpenRouterの場合）: 'meta-llama/llama-4-maverick:free'\n- デフォルトモデル: gpt-4.1-mini（OpenAIプロバイダ使用時）\nモデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合はプロバイダごとのデフォルトモデルが利用されます。")]=None,
+    # Annotatedは型ヒントに追加メタ情報（バリデーションや説明文など）を付与するための標準仕組みです
+provider: Annotated[str | None, Field(description="利用するAPIプロバイダ名を正確に指定してください。\n- デフォルト: openrouter\n- 指定可能値: 'openai' または 'openrouter'\n- OpenAIはAPIキーが無い場合の自動フォールバック先として利用されます。\nプロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合はデフォルトプロバイダ（openrouter）が利用されます。"\n- 指定可能値: 'openai' または 'openrouter'\n- デフォルトプロバイダ: openai\nプロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合はデフォルトプロバイダが利用されます。")]=None
 ):
     resolved_model, resolved_provider, api_key = resolve_model_and_provider({"model": model, "provider": provider})
     py_logging.info(f"cort_think_simple called: prompt={prompt} model={resolved_model} provider={resolved_provider}")
@@ -208,16 +225,16 @@ async def cort_think_simple(
         }
     except Exception as e:
         py_logging.exception(f"[ERROR] cort_think_simple failed: {e}")
-        fallback_api_key = get_api_key("openai")
+        fallback_api_key = get_api_key(DEFAULT_PROVIDER)
         if fallback_api_key:
             try:
-                chat = EnhancedRecursiveThinkingChat(api_key=fallback_api_key, model=DEFAULT_MODEL, provider="openai")
+                chat = EnhancedRecursiveThinkingChat(api_key=fallback_api_key, model=DEFAULT_MODEL, provider=DEFAULT_PROVIDER)
                 result = chat.think(prompt, details=False)
                 py_logging.info("cort_think_simple: fallback result generated successfully")
                 return {
                     "response": result["response"],
                     "model": DEFAULT_MODEL,
-                    "provider": "openai (fallback)"
+                    "provider": f"{DEFAULT_PROVIDER} (fallback)"
                 }
             except Exception as e2:
                 py_logging.exception(f"[ERROR] cort_think_simple fallback also failed: {e2}")
@@ -266,9 +283,13 @@ async def cort_think_simple(
 )
 async def cort_think_details(
     prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")],
-    model: Annotated[str | None, Field(description="利用するLLMモデル名を正確に指定してください。\n- 推奨値（OpenAIの場合）: 'gpt-4.1-nano'\n- 推奨値（OpenRouterの場合）: 'meta-llama/llama-4-maverick:free'\n- デフォルトモデル: gpt-4.1-mini（OpenAIプロバイダ使用時）\nモデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合はプロバイダごとのデフォルトモデルが利用されます。")]=None,
-    provider: Annotated[str | None, Field(description="利用するAPIプロバイダ名を正確に指定してください。\n- 指定可能値: 'openai' または 'openrouter'\n- デフォルトプロバイダ: openai\nプロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合はデフォルトプロバイダが利用されます。")]=None
+    model: Annotated[str | None, Field(description="利用するLLMモデル名を正確に指定してください。\n- デフォルト: mistralai/mistral-small-3.1-24b-instruct:free（OpenRouterプロバイダ使用時）\n- OpenAI利用時の推奨値: 'gpt-4.1-nano'\n- OpenRouter利用時の推奨値: 'meta-llama/llama-4-maverick:free'\nモデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合はデフォルトモデル（OpenRouter）が利用されます。")]=None,
+    provider: Annotated[str | None, Field(description="利用するAPIプロバイダ名を正確に指定してください。\n- デフォルト: openrouter\n- 指定可能値: 'openai' または 'openrouter'\n- OpenAIはAPIキーが無い場合の自動フォールバック先として利用されます。\nプロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合はデフォルトプロバイダ（openrouter）が利用されます。")]=None
 ):
+    print(f"=== cort_think_details called ===")
+    print(f"prompt={prompt}")
+    print(f"model={model}")
+    print(f"provider={provider}")
     resolved_model, resolved_provider, api_key = resolve_model_and_provider({"model": model, "provider": provider})
     py_logging.info(f"cort_think_details called: prompt={prompt} model={resolved_model} provider={resolved_provider}")
     if not prompt:
@@ -292,10 +313,10 @@ async def cort_think_details(
         }
     except Exception as e:
         py_logging.exception(f"[ERROR] cort_think_details failed: {e}")
-        fallback_api_key = get_api_key("openai")
+        fallback_api_key = get_api_key(DEFAULT_PROVIDER)
         if fallback_api_key:
             try:
-                chat = EnhancedRecursiveThinkingChat(api_key=fallback_api_key, model=DEFAULT_MODEL, provider="openai")
+                chat = EnhancedRecursiveThinkingChat(api_key=fallback_api_key, model=DEFAULT_MODEL, provider=DEFAULT_PROVIDER)
                 result = chat.think(prompt, details=True)
                 yaml_log = yaml.safe_dump({
                     "thinking_rounds": result.get("thinking_rounds"),
@@ -306,7 +327,7 @@ async def cort_think_details(
                     "response": result["response"],
                     "details": yaml_log,
                     "model": DEFAULT_MODEL,
-                    "provider": "openai (fallback)"
+                    "provider": f"{DEFAULT_PROVIDER} (fallback)"
                 }
             except Exception as e2:
                 py_logging.exception(f"[ERROR] cort_think_details fallback also failed: {e2}")
@@ -341,8 +362,10 @@ def main():
     if args.log == "on" and not args.logfile.startswith("/"):
         print("[FATAL] --logfile must be an absolute path when --log=on", file=sys.stderr)
         sys.exit(1)
+    global py_logging
     logger = setup_logging(args.log, args.logfile)
     import logging as py_logging
+    py_logging = logger
     py_logging.info("cort-mcp main() started")
     try:
         py_logging.info("Server mode: waiting for MCP stdio requests...")
