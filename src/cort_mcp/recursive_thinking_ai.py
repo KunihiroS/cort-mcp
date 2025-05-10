@@ -102,7 +102,15 @@ Respond with just a number between 1 and 5."""
             logger.warning(f"Could not determine rounds, using default: {e}")
             return 3  # Default to 3 rounds
             
-    def think(self, prompt: str, rounds: Optional[int] = None, num_alternatives: int = 3, details: bool = False) -> Dict[str, Any]:
+    def _build_eval_prompt(self, prompt, current_best, alternatives, neweval=False):
+        if neweval:
+            logger.info("[EVAL PROMPT] neweval=True: new eval prompt")
+            return f"""Original message: {prompt}\n\nYou are an expert evaluator tasked with selecting the response that best fulfills the user's true needs, considering multiple perspectives.\n\nCurrent best: {current_best}\n\nAlternatives:\n{chr(10).join([f"{i+1}. {alt}" for i, alt in enumerate(alternatives)])}\n\nPlease follow this evaluation process:\n\n1. Intent Analysis: What is the user REALLY seeking? What underlying needs might be present beyond the surface question?\n2. Context Consideration: What possible situations or backgrounds could this question arise from?\n3. Diversity Assessment: Does the response consider different viewpoints or possible interpretations?\n4. Practicality Evaluation: How useful would the response be in the user's real-world context?\n5. Consistency Check: Is the response internally consistent and logically coherent?\n\nFor each response (including the current best):\n- Does it solve the user's TRUE problem?\n- Does it balance accuracy and usefulness?\n- Does it avoid unnecessary assumptions or biases?\n- Is it flexible enough to apply in various contexts or situations?\n- Does it account for exceptions or special cases?\n\nAfter completing your evaluation:\n1. Indicate your choice with ONLY 'current' or a number (1-{len(alternatives)}).\n2. On the next line, explain specifically why this response best meets the user's true needs.\n"""
+        else:
+            logger.info("[EVAL PROMPT] neweval=False: original eval prompt")
+            return f"""Original message: {prompt}\n\nEvaluate these responses and choose the best one:\n\nCurrent best: {current_best}\n\nAlternatives:\n{chr(10).join([f"{i+1}. {alt}" for i, alt in enumerate(alternatives)])}\n\nWhich response best addresses the original message? Consider accuracy, clarity, and completeness.\nFirst, respond with ONLY 'current' or a number (1-{len(alternatives)}).\nThen on a new line, explain your choice in one sentence."""
+
+    def think(self, prompt: str, rounds: Optional[int] = None, num_alternatives: int = 3, details: bool = False, neweval: bool = False) -> Dict[str, Any]:
         """Process user input with recursive thinking.
         
         Args:
@@ -158,7 +166,7 @@ Respond with just a number between 1 and 5."""
                 alt_llm_responses.append(alternative)
             # Evaluate responses
             logger.info("\n=== EVALUATING RESPONSES ===")
-            eval_prompt = f"""Original message: {prompt}\n\nEvaluate these responses and choose the best one:\n\nCurrent best: {current_best}\n\nAlternatives:\n{chr(10).join([f"{i+1}. {alt}" for i, alt in enumerate(alternatives)])}\n\nWhich response best addresses the original message? Consider accuracy, clarity, and completeness.\nFirst, respond with ONLY 'current' or a number (1-{len(alternatives)}).\nThen on a new line, explain your choice in one sentence."""
+            eval_prompt = self._build_eval_prompt(prompt, current_best, alternatives, neweval=neweval)
             eval_messages = [{"role": "user", "content": eval_prompt}]
             evaluation = self._call_api(eval_messages, temperature=0.2, stream=False)
             logger.info("=" * 50)

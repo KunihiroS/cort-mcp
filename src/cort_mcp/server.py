@@ -272,7 +272,7 @@ async def cort_think_simple_neweval(
         }
     try:
         chat = EnhancedRecursiveThinkingChat(api_key=api_key, model=resolved_model, provider=resolved_provider)
-        result = chat.think(prompt, details=False)
+        result = chat.think(prompt, details=False, neweval=True)
         py_logging.info("cort_think_simple_neweval: result generated successfully")
         return {
             "response": result["response"],
@@ -285,7 +285,7 @@ async def cort_think_simple_neweval(
         if fallback_api_key:
             try:
                 chat = EnhancedRecursiveThinkingChat(api_key=fallback_api_key, model=DEFAULT_MODEL, provider=DEFAULT_PROVIDER)
-                result = chat.think(prompt, details=False)
+                result = chat.think(prompt, details=False, neweval=True)
                 py_logging.info("cort_think_simple_neweval: fallback result generated successfully")
                 return {
                     "response": result["response"],
@@ -430,7 +430,7 @@ async def cort_think_details_neweval(
         }
     try:
         chat = EnhancedRecursiveThinkingChat(api_key=api_key, model=resolved_model, provider=resolved_provider)
-        result = chat.think(prompt, details=True)
+        result = chat.think(prompt, details=True, neweval=True)
         yaml_log = yaml.safe_dump({
             "thinking_rounds": result.get("thinking_rounds"),
             "thinking_history": result.get("thinking_history")
@@ -475,14 +475,12 @@ async def cort_think_details_neweval(
 MIXED_LLM_LIST = [
     {"provider": "openai", "model": "gpt-4.1-mini"},
     {"provider": "openai", "model": "gpt-4.1-nano"},
-    {"provider": "openai", "model": "gpt-4o"},
     {"provider": "openai", "model": "gpt-4o-mini"},
-    {"provider": "openrouter", "model": "meta-llama/llama-4-maverick:free"},
     {"provider": "openrouter", "model": "meta-llama/llama-4-scout:free"},
-    {"provider": "openrouter", "model": "microsoft/phi-4-reasoning:free"},
     {"provider": "openrouter", "model": "google/gemini-2.0-flash-exp:free"},
     {"provider": "openrouter", "model": "mistralai/mistral-small-3.1-24b-instruct:free"},
     {"provider": "openrouter", "model": "google/gemma-3-27b-it:free"},
+    {"provider": "openrouter", "model": "nousresearch/deephermes-3-mistral-24b-preview:free"},
 ]
 
 def get_available_mixed_llms():
@@ -497,7 +495,7 @@ def get_available_mixed_llms():
 import random
 from typing import Dict, Any
 
-def generate_with_mixed_llm(prompt: str, details: bool = False) -> Dict[str, Any]:
+def generate_with_mixed_llm(prompt: str, details: bool = False, neweval: bool = False) -> Dict[str, Any]:
     available_llms = get_available_mixed_llms()
     if not prompt:
         py_logging.warning("mixed_llm: prompt is required")
@@ -558,15 +556,8 @@ def generate_with_mixed_llm(prompt: str, details: bool = False) -> Dict[str, Any
         # 評価はベースLLMで行う（現状CoRTの流儀を踏襲）
         py_logging.info("\n=== EVALUATING RESPONSES ===")
         alts_text = "\n".join([f"{i+1}. {alt['response']}" for i, alt in enumerate(alternatives)])
-        eval_prompt = (
-            f"Original message: {prompt}\n\n"
-            f"Evaluate these responses and choose the best one:\n\n"
-            f"Current best: {current_best}\n\n"
-            f"Alternatives:\n{alts_text}\n\n"
-            f"Which response best addresses the original message? Consider accuracy, clarity, and completeness.\n"
-            f"First, respond with ONLY 'current' or a number (1-{len(alternatives)}).\n"
-            f"Then on a new line, explain your choice in one sentence."
-        )
+        # 評価プロンプトはAIコア側で一元管理
+        eval_prompt = chat._build_eval_prompt(prompt, current_best, [alt['response'] for alt in alternatives], neweval=neweval)
         eval_messages = [{"role": "user", "content": eval_prompt}]
         evaluation = chat._call_api(eval_messages, temperature=0.2, stream=False)
         py_logging.info("=" * 50)
@@ -708,7 +699,8 @@ async def cort_think_simple_mixed_llm(
 async def cort_think_simple_mixed_llm_neweval(
     prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")]
 ):
-    result = generate_with_mixed_llm(prompt, details=False)
+    result = generate_with_mixed_llm(prompt, details=False, neweval=True)
+    # neweval専用プロンプトで評価するために、details=False, neweval=Trueでthinkを呼び出す必要がある場合はここで明示
     response = result.get("response")
     best = result.get("best")
     return {
@@ -757,7 +749,7 @@ async def cort_think_details_mixed_llm(
 async def cort_think_details_mixed_llm_neweval(
     prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")]
 ):
-    result = generate_with_mixed_llm(prompt, details=True)
+    result = generate_with_mixed_llm(prompt, details=True, neweval=True)
     import yaml
     if "thinking_rounds" in result and "thinking_history" in result:
         result["details"] = yaml.safe_dump({
