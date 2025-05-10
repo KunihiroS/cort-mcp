@@ -6,6 +6,11 @@ The orignal project is as below, I appreciate so much the original work.
 > Original: PhialsBasement/Chain-of-Recursive-Thoughts: I made my AI think harder by making it argue with itself repeatedly. It works stupidly well.  
 > https://github.com/PhialsBasement/Chain-of-Recursive-Thoughts
 
+## Release note
+
+0.2.0 LLM list updated
+0.1.0 Initial release
+
 ## Features
 
 - CoRT method available via MCP Server that makes AI to think harder by making it argue with itself repeatedly. It works stupidly well.
@@ -126,20 +131,18 @@ This allows you to maximize the use of the knowledge and ideas of heterogeneous 
 
 - the function is available by mixed llm tools.
 
-### The list of mixed LLMs
+### The list of LLMs
 
-- Reasonably light weight models are selected for better user experience.
+- Reasonably lighter weight models are selected for better user experience.
 
 ```
 MIXED_LLM_LIST = [
-    {"provider": "openai", "model": "gpt-4.1-mini"},
     {"provider": "openai", "model": "gpt-4.1-nano"},
     {"provider": "openai", "model": "gpt-4o-mini"},
     {"provider": "openrouter", "model": "meta-llama/llama-4-scout:free"},
     {"provider": "openrouter", "model": "google/gemini-2.0-flash-exp:free"},
     {"provider": "openrouter", "model": "mistralai/mistral-small-3.1-24b-instruct:free"},
-    {"provider": "openrouter", "model": "google/gemma-3-27b-it:free"},
-    {"provider": "openrouter", "model": "nousresearch/deephermes-3-mistral-24b-preview:free"},
+    {"provider": "openrouter", "model": "meta-llama/llama-3.2-3b-instruct:free"},
 ]
 ```
 
