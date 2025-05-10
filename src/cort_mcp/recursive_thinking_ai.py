@@ -85,6 +85,15 @@ Respond with just a number between 1 and 5."""
         logger.info("=== DETERMINING THINKING ROUNDS ===")
         response = self._call_api(messages, temperature=0.3, stream=False)
         logger.info("=" * 50)
+
+        try:
+            rounds = int(''.join(filter(str.isdigit, response)))
+            logger.info(f"\n🤔 Thinking... ({rounds} rounds needed)")
+            return min(max(rounds, 1), 5)  # Between 1 and 5
+        except Exception as e:
+            logger.warning(f"Could not determine rounds, using default: {e}")
+            logger.info(f"\n🤔 Thinking... (3 rounds needed)")
+            return 3  # Default to 3 rounds
         
         try:
             rounds = int(''.join(filter(str.isdigit, response)))
@@ -139,7 +148,7 @@ Respond with just a number between 1 and 5."""
             
             # Generate alternatives
             for i in range(num_alternatives):
-                logger.info(f"\n=== GENERATING ALTERNATIVE {i+1} ===")
+                logger.info(f"\n✨ ALTERNATIVE {i+1} ✨")
                 alt_prompt = f"""Original message: {prompt}\n\nCurrent response: {current_best}\n\nGenerate an alternative response that might be better. Be creative and consider different approaches.\nAlternative response:"""
                 alt_messages = self.conversation_history + [{"role": "user", "content": alt_prompt}]
                 alternative = self._call_api(alt_messages, temperature=0.7 + i * 0.1, stream=False)
