@@ -230,7 +230,9 @@ Respond with just a number between 1 and 5."""
         logger.info("=" * 50)
         
         result = {
-            "response": current_best
+            "response": current_best,
+            "model": self.model,
+            "provider": self.provider
         }
         if details:
             result["thinking_rounds"] = thinking_rounds

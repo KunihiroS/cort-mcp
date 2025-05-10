@@ -207,9 +207,9 @@ async def cort_think_simple(
         result = chat.think(prompt, details=False)
         py_logging.info("cort_think_simple: result generated successfully")
         return {
-            "response": result["response"],
-            "model": resolved_model,
-            "provider": resolved_provider
+            "response": result.get("response"),
+            "model": result.get("model"),
+            "provider": result.get("provider")
         }
     except Exception as e:
         py_logging.exception(f"[ERROR] cort_think_simple failed: {e}")
@@ -220,9 +220,9 @@ async def cort_think_simple(
                 result = chat.think(prompt, details=False)
                 py_logging.info("cort_think_simple: fallback result generated successfully")
                 return {
-                    "response": result["response"],
-                    "model": DEFAULT_MODEL,
-                    "provider": f"{DEFAULT_PROVIDER} (fallback)"
+                    "response": result.get("response"),
+                    "model": result.get("model"),
+                    "provider": result.get("provider")
                 }
             except Exception as e2:
                 py_logging.exception(f"[ERROR] cort_think_simple fallback also failed: {e2}")
@@ -275,9 +275,9 @@ async def cort_think_simple_neweval(
         result = chat.think(prompt, details=False, neweval=True)
         py_logging.info("cort_think_simple_neweval: result generated successfully")
         return {
-            "response": result["response"],
-            "model": resolved_model,
-            "provider": resolved_provider
+            "response": result.get("response"),
+            "model": result.get("model"),
+            "provider": result.get("provider")
         }
     except Exception as e:
         py_logging.exception(f"[ERROR] cort_think_simple_neweval failed: {e}")
@@ -674,8 +674,8 @@ async def cort_think_simple_mixed_llm(
     best = result.get("best")
     return {
         "response": response,
-        "provider": best["provider"],
-        "model": best["model"]
+        "model": best.get("model"),
+        "provider": best.get("provider")
     }
 
 @server.tool(
@@ -705,8 +705,8 @@ async def cort_think_simple_mixed_llm_neweval(
     best = result.get("best")
     return {
         "response": response,
-        "provider": best["provider"],
-        "model": best["model"]
+        "model": best.get("model"),
+        "provider": best.get("provider")
     }
 
 @server.tool(
