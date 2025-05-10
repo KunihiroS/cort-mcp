@@ -513,7 +513,12 @@ def generate_with_mixed_llm(prompt: str, details: bool = False, neweval: bool = 
     py_logging.info("\n=== GENERATING INITIAL RESPONSE ===")
     py_logging.info(f"Base LLM: provider={base_llm['provider']}, model={base_llm['model']}, rounds={thinking_rounds}")
     base_response = chat._call_api([{"role": "user", "content": prompt}], temperature=0.7, stream=False)
-    current_best = base_response
+    # --- base_responseはAI応答のみ（simple系同様） ---
+    # もしAPI返り値がdictや構造体ならcontentキーのみ抽出、そうでなければそのまま
+    if isinstance(base_response, dict) and "content" in base_response:
+        current_best = base_response["content"]
+    else:
+        current_best = base_response
     py_logging.info("=" * 50)
     thinking_history = [{
         "round": 0,
@@ -544,9 +549,14 @@ def generate_with_mixed_llm(prompt: str, details: bool = False, neweval: bool = 
             alt_messages = [{"role": "user", "content": alt_prompt}]
             alt_chat = EnhancedRecursiveThinkingChat(api_key=alt_llm["api_key"], model=alt_llm["model"], provider=alt_llm["provider"])
             alt_response = alt_chat._call_api(alt_messages, temperature=0.7 + i * 0.1, stream=False)
+            # --- alt_responseもAI応答のみ（simple系同様） ---
+            if isinstance(alt_response, dict) and "content" in alt_response:
+                alt_response_text = alt_response["content"]
+            else:
+                alt_response_text = alt_response
             py_logging.info(f"Alternative {i+1}: provider={alt_llm['provider']}, model={alt_llm['model']}")
             alternatives.append({
-                "response": alt_response,
+                "response": alt_response_text,
                 "provider": alt_llm["provider"],
                 "model": alt_llm["model"]
             })
