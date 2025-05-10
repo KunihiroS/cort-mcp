@@ -7,22 +7,22 @@ import logging as py_logging
 from typing import Annotated
 from pydantic import Field
 
-# ロギング初期化
+# Initialize logging
 py_logging.basicConfig(level=py_logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-# 相対インポートをサポート
+# Support relative imports
 try:
     from .recursive_thinking_ai import EnhancedRecursiveThinkingChat
     py_logging.debug("Imported EnhancedRecursiveThinkingChat via relative import")
 except ImportError as e:
     py_logging.debug(f"Relative import failed: {e}, trying absolute import")
     try:
-        # 直接実行された場合
+        # When executed directly
         from cort_mcp.recursive_thinking_ai import EnhancedRecursiveThinkingChat
         py_logging.debug("Imported EnhancedRecursiveThinkingChat via absolute import")
     except ImportError as e2:
         py_logging.debug(f"Absolute import failed: {e2}, trying sys.path modification")
-        # 開発モードで実行された場合
+        # When executed in development mode
         src_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         py_logging.debug(f"Adding path to sys.path: {src_path}")
         sys.path.append(src_path)
@@ -33,7 +33,7 @@ except ImportError as e:
             py_logging.error(f"All import attempts failed: {e3}")
             raise
 
-# MCPサーバーライブラリのインポート
+# Import MCP server library
 try:
     from fastmcp import FastMCP
     py_logging.debug("Imported FastMCP from fastmcp package")
@@ -46,7 +46,7 @@ except ImportError as e:
         py_logging.error(f"Failed to import FastMCP: {e2}")
         raise
 
-# デフォルト値を定数として定義
+# Define default values as constants
 DEFAULT_MODEL = "mistralai/mistral-small-3.1-24b-instruct:free"
 DEFAULT_PROVIDER = "openrouter"
 
@@ -122,8 +122,8 @@ def resolve_model_and_provider(params):
     print("=== resolve_model_and_provider called ===")
     py_logging.info("=== resolve_model_and_provider called ===")
     import os
-    # 既存のpy_logging（logging as py_loggingでimport済み）を使う
-    # デバッグ: 環境変数の状態を出力
+    # Use existing py_logging (already imported as py_logging)
+    # Debug: Output environment variable status
     def mask_key(key):
         if key:
             return 'SET'
@@ -139,16 +139,16 @@ def resolve_model_and_provider(params):
     if not provider:
         provider = DEFAULT_PROVIDER
     py_logging.info(f"[DEBUG] after default: model={model}, provider={provider}")
-    # ここでAPIキー存在チェック（providerが不正/未設定含む）
+    # Check API key existence here (including invalid/unset provider)
     api_key = get_api_key(provider)
     py_logging.info(f"[DEBUG] get_api_key(provider={provider}) -> {mask_key(api_key)}")
     if not api_key:
-        # providerが不正、APIキー無し→デフォルトにフォールバック
+        # Invalid provider or no API key -> fallback to default
         provider = DEFAULT_PROVIDER
         model = DEFAULT_MODEL
         api_key = get_api_key(provider)
         py_logging.info(f"[DEBUG] fallback: model={model}, provider={provider}, api_key={mask_key(api_key)}")
-    # さらに「モデル名がproviderに存在しない」等のチェックはAI側APIで例外発生時に検知
+    # Additional checks like "model not existing in provider" are detected by exceptions in AI-side API
     return model, provider, api_key
 
 def get_api_key(provider):
@@ -160,7 +160,7 @@ def get_api_key(provider):
         key = None
     return key
 
-# FastMCPのインスタンスを作成
+# Create FastMCP instance
 server = FastMCP(
     name="Chain-of-Recursive-Thoughts MCP Server",
     instructions="Provide deeper recursive thinking and reasoning for the given prompt. Use the MCP Server when you encounter complex problems.",
@@ -306,31 +306,31 @@ async def cort_think_simple_neweval(
 @server.tool(
     name="cort.think.details",
     description="""
-    思考過程の詳細も含めて返す再帰的思考AIツール。
+    Returns a recursive thinking AI response with full reasoning details.
 
     Parameters:
-        prompt (str, required): AIへの入力プロンプト（必須）。
-        model (str, optional): 利用するLLMモデル名。指定がない場合はデフォルトモデルを利用。
-        provider (str, optional): 利用するAPIプロバイダ名。指定がない場合はデフォルトプロバイダを利用。
+        prompt (str, required): Input prompt for the AI.
+        model (str, optional): LLM model name. If not specified, the default model is used.
+        provider (str, optional): API provider name. If not specified, the default provider is used.
 
     Returns:
         dict: {
-            "response": AIの最終回答（string）, 
-            "details": 思考過程の履歴（YAML形式, string）, 
-            "model": 使用モデル名（string）, 
-            "provider": 使用プロバイダ名（string）
+            "response": Final AI response (string),
+            "details": Reasoning process history (YAML string),
+            "model": Model name used (string),
+            "provider": Provider name used (string)
         }
 
     Notes:
-        - model/providerを省略した場合はデフォルト値を自動適用
-        - 例外発生時はフォールバック処理を実施
-        - 思考履歴はYAML形式でdetailsキーに格納
+        - If model/provider is omitted, defaults are applied automatically.
+        - On exceptions, fallback logic is applied.
+        - Reasoning history is included in the 'details' key as YAML.
     """
 )
 async def cort_think_details(
-    prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")],
-    model: Annotated[str | None, Field(description="利用するLLMモデル名を正確に指定してください。\n- 推奨値（OpenAIの場合）: 'gpt-4.1-nano'\n- 推奨値（OpenRouterの場合）: 'meta-llama/llama-4-maverick:free'\n- デフォルトモデル: mistralai/mistral-small-3.1-24b-instruct:free\nモデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合、自動的にデフォルトモデルが利用されます。")]=None,
-    provider: Annotated[str | None, Field(description="利用するAPIプロバイダ名を正確に指定してください。\n- 指定可能値: 'openai' または 'openrouter'\n- デフォルトプロバイダ: openrouter\nプロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合、自動的にデフォルトプロバイダが利用されます。")]=None
+    prompt: Annotated[str, Field(description="Input prompt for the AI (required)")],
+    model: Annotated[str | None, Field(description="LLM model name to use.\n- Recommended (OpenAI): 'gpt-4.1-nano'\n- Recommended (OpenRouter): 'meta-llama/llama-4-maverick:free'\n- Default: mistralai/mistral-small-3.1-24b-instruct:free\nRefer to the official provider list for available models. If not specified, the default model will be used automatically.")]=None,
+    provider: Annotated[str | None, Field(description="API provider name to use.\n- Allowed: 'openai' or 'openrouter'\n- Default: openrouter\nModel availability depends on the provider. Please ensure the correct combination. If not specified, the default provider will be used automatically.")]=None
 ):
     resolved_model, resolved_provider, api_key = resolve_model_and_provider({"model": model, "provider": provider})
     py_logging.info(f"cort_think_details called: prompt={prompt} model={resolved_model} provider={resolved_provider}")
@@ -385,41 +385,41 @@ async def cort_think_details(
 @server.tool(
     name="cort.think.details.neweval",
     description="""
-    思考過程の詳細も含めて返す再帰的思考AIツール（新評価プロンプトバージョン）。
+    Returns a recursive thinking AI response with full reasoning details (new evaluation prompt version).
 
-    機能:
-        指定されたプロンプトに対し、再帰的思考AIの応答と、思考履歴や過程（YAML形式）を返します。
+    Features:
+        - Provides a recursive thinking AI response and the reasoning process/history (YAML format) for the given prompt.
 
-    パラメータ:
-        prompt (str, 必須): AIへの入力プロンプト。
-        model (str, 任意): 利用するLLMモデル名を正確に指定してください。
-    - 推奨値（OpenAIの場合）: "gpt-4.1-nano"
-    - 推奨値（OpenRouterの場合）: "meta-llama/llama-4-maverick:free"
-    - デフォルトモデル: mistralai/mistral-small-3.1-24b-instruct:free
-    モデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合、自動的にデフォルトモデルが利用されます。
-        provider (str, 任意): 利用するAPIプロバイダ名を正確に指定してください。
-    - 指定可能値: "openai" または "openrouter"
-    - デフォルトプロバイダ: openrouter
-    プロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合、自動的にデフォルトプロバイダが利用されます。
+    Parameters:
+        prompt (str, required): Input prompt for the AI.
+        model (str, optional): LLM model name. If not specified, the default model is used.
+            - Recommended (OpenAI): "gpt-4.1-nano"
+            - Recommended (OpenRouter): "meta-llama/llama-4-maverick:free"
+            - Default: mistralai/mistral-small-3.1-24b-instruct:free
+            - Please refer to the official provider list for available models.
+        provider (str, optional): API provider name. If not specified, the default provider is used.
+            - Allowed: "openai" or "openrouter"
+            - Default: openrouter
+            - Model availability depends on the provider. Please ensure the correct combination.
 
-    戻り値:
+    Returns:
         dict: {
-            "response": AIの応答（string）, 
-            "details": 思考履歴や過程（YAML形式のstring）, 
-            "model": 実際に使用されたモデル名（string）, 
-            "provider": 実際に使用されたプロバイダー名（string）
+            "response": AI response (string),
+            "details": Reasoning process/history (YAML string),
+            "model": Model name used (string),
+            "provider": Provider name used (string)
         }
 
-    注意:
-        - オプションパラメータ（model, provider）は未指定時はパラメータごと省略してください。
-        - 明示的にnullや空文字を渡すとAPI側でエラーとなる場合があります。
-        - API呼び出しエラー時のフォールバック挙動については、README.md の「パラメータ指定とフォールバック処理」セクションを参照してください。
+    Notes:
+        - If model/provider is omitted, omit the parameter entirely.
+        - Passing null or empty string may cause API errors.
+        - For fallback behavior on API errors, see the "Parameter Specification and Fallback Handling" section in README.md.
     """
 )
 async def cort_think_details_neweval(
-    prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")],
-    model: Annotated[str | None, Field(description="利用するLLMモデル名を正確に指定してください。\n- 推奨値（OpenAIの場合）: 'gpt-4.1-nano'\n- 推奨値（OpenRouterの場合）: 'meta-llama/llama-4-maverick:free'\n- デフォルトモデル: mistralai/mistral-small-3.1-24b-instruct:free\nモデル名は各プロバイダの公式リストに従い、正確に入力してください。指定がない場合、自動的にデフォルトモデルが利用されます。")]=None,
-    provider: Annotated[str | None, Field(description="利用するAPIプロバイダ名を正確に指定してください。\n- 指定可能値: 'openai' または 'openrouter'\n- デフォルトプロバイダ: openrouter\nプロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合、自動的にデフォルトプロバイダが利用されます。")]=None
+    prompt: Annotated[str, Field(description="Input prompt for the AI (required)")],
+    model: Annotated[str | None, Field(description="LLM model name to use.\n- Recommended (OpenAI): 'gpt-4.1-nano'\n- Recommended (OpenRouter): 'meta-llama/llama-4-maverick:free'\n- Default: mistralai/mistral-small-3.1-24b-instruct:free\nRefer to the official provider list for available models. If not specified, the default model will be used automatically.")]=None,
+    provider: Annotated[str | None, Field(description="API provider name to use.\n- Allowed: 'openai' or 'openrouter'\n- Default: openrouter\nModel availability depends on the provider. Please ensure the correct combination. If not specified, the default provider will be used automatically.")]=None
 ):
     resolved_model, resolved_provider, api_key = resolve_model_and_provider({"model": model, "provider": provider})
     py_logging.info(f"cort_think_details_neweval called: prompt={prompt} model={resolved_model} provider={resolved_provider}")
@@ -471,7 +471,7 @@ async def cort_think_details_neweval(
                 "error": f"Failed to process request: {str(e)}. API key for OpenAI is missing (cannot fallback)"
             }
 
-# --- Mixed LLMリスト定義 ---
+# --- Mixed LLM List Definition ---
 MIXED_LLM_LIST = [
     {"provider": "openai", "model": "gpt-4.1-mini"},
     {"provider": "openai", "model": "gpt-4.1-nano"},
@@ -484,7 +484,7 @@ MIXED_LLM_LIST = [
 ]
 
 def get_available_mixed_llms():
-    """APIキーが有効なものだけ返す"""
+    """Return only LLMs with valid API keys"""
     available = []
     for entry in MIXED_LLM_LIST:
         api_key = get_api_key(entry["provider"])
@@ -503,18 +503,18 @@ def generate_with_mixed_llm(prompt: str, details: bool = False, neweval: bool = 
     if not available_llms:
         py_logging.error("mixed_llm: No available LLMs (API key missing)")
         return {"error": "No available LLMs (API key missing)"}
-
-    # --- ラウンド数・案数は既存ロジックに従いAIが決定 ---
-    # まずベースLLMをランダムで1つ選ぶ
+ 
+    # --- Number of rounds and alternatives are determined by AI based on existing logic ---
+    # First, randomly select a base LLM
     base_llm = random.choice(available_llms)
     chat = EnhancedRecursiveThinkingChat(api_key=base_llm["api_key"], model=base_llm["model"], provider=base_llm["provider"])
-    # ベース応答生成（初回）
+    # Generate base response (initial)
     thinking_rounds = chat._determine_thinking_rounds(prompt)
     py_logging.info("\n=== GENERATING INITIAL RESPONSE ===")
     py_logging.info(f"Base LLM: provider={base_llm['provider']}, model={base_llm['model']}, rounds={thinking_rounds}")
     base_response = chat._call_api([{"role": "user", "content": prompt}], temperature=0.7, stream=False)
-    # --- base_responseはAI応答のみ（simple系同様） ---
-    # もしAPI返り値がdictや構造体ならcontentキーのみ抽出、そうでなければそのまま
+    # --- base_response contains only AI response (similar to simple mode) ---
+    # If API response is a dict or structure, extract only content key; otherwise, use as is
     if isinstance(base_response, dict) and "content" in base_response:
         current_best = base_response["content"]
     else:
@@ -549,7 +549,7 @@ def generate_with_mixed_llm(prompt: str, details: bool = False, neweval: bool = 
             alt_messages = [{"role": "user", "content": alt_prompt}]
             alt_chat = EnhancedRecursiveThinkingChat(api_key=alt_llm["api_key"], model=alt_llm["model"], provider=alt_llm["provider"])
             alt_response = alt_chat._call_api(alt_messages, temperature=0.7 + i * 0.1, stream=False)
-            # --- alt_responseもAI応答のみ（simple系同様） ---
+            # --- alt_response also contains only AI response (similar to simple mode) ---
             if isinstance(alt_response, dict) and "content" in alt_response:
                 alt_response_text = alt_response["content"]
             else:
@@ -563,15 +563,15 @@ def generate_with_mixed_llm(prompt: str, details: bool = False, neweval: bool = 
             alt_llm_info.append({"provider": alt_llm["provider"], "model": alt_llm["model"]})
             alt_llm_responses.append(alt_response)
             alt_llm_prompts.append(alt_prompt)
-        # 評価はベースLLMで行う（現状CoRTの流儀を踏襲）
+        # Evaluation is performed by base LLM (following current CoRT practice)
         py_logging.info("\n=== EVALUATING RESPONSES ===")
         alts_text = "\n".join([f"{i+1}. {alt['response']}" for i, alt in enumerate(alternatives)])
-        # 評価プロンプトはAIコア側で一元管理
+        # Evaluation prompt is centrally managed on AI core side
         eval_prompt = chat._build_eval_prompt(prompt, current_best, [alt['response'] for alt in alternatives], neweval=neweval)
         eval_messages = [{"role": "user", "content": eval_prompt}]
         evaluation = chat._call_api(eval_messages, temperature=0.2, stream=False)
         py_logging.info("=" * 50)
-
+ 
         lines = [line.strip() for line in evaluation.split('\n') if line.strip()]
         choice = 'current'
         explanation_text = "No explanation provided"
@@ -605,13 +605,13 @@ def generate_with_mixed_llm(prompt: str, details: bool = False, neweval: bool = 
                 selected_response = current_best
                 selected_idx = -1
                 py_logging.info(f"\n    ✓ Could not parse selection, keeping current response")
-        # 選択されたprovider/modelを記録
+        # Record the selected provider/model
         if selected_idx != -1 and 0 <= selected_idx < len(alternatives):
             sel_provider = alternatives[selected_idx]["provider"]
             sel_model = alternatives[selected_idx]["model"]
         else:
-            # current_bestはbase_llmまたは前回のbest
-            # 直前のthinking_historyから拾う（なければbase_llm）
+            # current_best is either base_llm or previous best
+            # Pick from the last thinking_history (if not, use base_llm)
             if thinking_history:
                 sel_provider = thinking_history[-1].get("provider", base_llm["provider"])
                 sel_model = thinking_history[-1].get("model", base_llm["model"])
@@ -635,24 +635,24 @@ def generate_with_mixed_llm(prompt: str, details: bool = False, neweval: bool = 
     py_logging.info("🎯 FINAL RESPONSE SELECTED")
     py_logging.info("=" * 50)
     result = {"response": current_best}
-    # detailsの有無に関わらず、最低限のメタ情報は常に返す
+    # Regardless of details, always return minimal meta information
     result["thinking_rounds"] = thinking_rounds
     result["thinking_history"] = thinking_history
-    # 最終回答を生成したprovider/modelを必ずbestに格納（simple用）
+    # Always store the provider/model that generated the final response in best (for simple mode)
     last_provider = None
     last_model = None
     if thinking_history and isinstance(thinking_history[-1], dict):
         last_provider = thinking_history[-1].get("provider")
         last_model = thinking_history[-1].get("model")
-    # 念のためnull回避
+    # Prevent null values just in case
     if not last_provider or not last_model:
-        # 最後のalternativesから取得（選択肢があれば）
+        # Get from the last alternatives (if options exist)
         last_alts = thinking_history[-1].get("alternatives", [])
         if last_alts and isinstance(last_alts, list):
             last_alt = last_alts[-1]
             last_provider = last_provider or last_alt.get("provider")
             last_model = last_model or last_alt.get("model")
-    # それでもなければbase_llm
+    # If still not found, use base_llm
     if not last_provider:
         last_provider = base_llm["provider"]
     if not last_model:
@@ -663,11 +663,11 @@ def generate_with_mixed_llm(prompt: str, details: bool = False, neweval: bool = 
         "model": last_model
     }
     if details:
-        # 詳細モードのみ追加情報
+        # Additional information only in details mode
         result["alternatives"] = thinking_history[-1]["alternatives"] if thinking_history else []
     return result
 
-# --- MCPツール定義 ---
+# --- MCP Tool Definitions ---
 from typing import Annotated
 from pydantic import Field
 
@@ -676,7 +676,7 @@ from pydantic import Field
     description="Generate recursive thinking AI response using a different LLM (provider/model) for each alternative. No history/details output. Parameters: prompt (str, required). model/provider cannot be specified (randomly selected internally). Provider/model info for each alternative is always logged and included in the output.",
 )
 async def cort_think_simple_mixed_llm(
-    prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")]
+    prompt: Annotated[str, Field(description="Input prompt for the AI (required)")]
 ):
     result = generate_with_mixed_llm(prompt, details=False)
     # 必要な情報のみ抽出
@@ -694,7 +694,7 @@ async def cort_think_simple_mixed_llm(
     Generate recursive thinking AI response using a different LLM (provider/model) for each alternative. No history/details output. (new evaluation prompt version)
 
     Parameters:
-        prompt (str, required): AIへの入力プロンプト（必須）。
+        prompt (str, required): Input prompt for the AI (required).
         model/provider cannot be specified (randomly selected internally)。
         Provider/model info for each alternative is always logged and included in the output.
 
@@ -707,7 +707,7 @@ async def cort_think_simple_mixed_llm(
     """
 )
 async def cort_think_simple_mixed_llm_neweval(
-    prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")]
+    prompt: Annotated[str, Field(description="Input prompt for the AI (required)")]
 ):
     result = generate_with_mixed_llm(prompt, details=False, neweval=True)
     # neweval専用プロンプトで評価するために、details=False, neweval=Trueでthinkを呼び出す必要がある場合はここで明示
@@ -724,7 +724,7 @@ async def cort_think_simple_mixed_llm_neweval(
     description="Generate recursive thinking AI response with full history, using a different LLM (provider/model) for each alternative. Parameters: prompt (str, required). model/provider cannot be specified (randomly selected internally). Provider/model info for each alternative is always logged and included in the output and history.",
 )
 async def cort_think_details_mixed_llm(
-    prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")]
+    prompt: Annotated[str, Field(description="Input prompt for the AI (required)")]
 ):
     result = generate_with_mixed_llm(prompt, details=True)
     import yaml
@@ -741,23 +741,23 @@ async def cort_think_details_mixed_llm(
     Generate recursive thinking AI response with full history, using a different LLM (provider/model) for each alternative. (new evaluation prompt version)
 
     Parameters:
-        prompt (str, required): AIへの入力プロンプト（必須）。
-        model/provider cannot be specified (randomly selected internally)。
+        prompt (str, required): Input prompt for the AI (required).
+        model/provider cannot be specified (randomly selected internally).
         Provider/model info for each alternative is always logged and included in the output and history.
 
     Returns:
         dict: {
             "response": AI response (string),
-            "details": YAML形式の思考履歴 (string),
+            "details": YAML-formatted thinking history (string),
             "thinking_rounds": int,
             "thinking_history": list,
-            "best": dict,
-            "alternatives": list (details=True時のみ)
+            "best": dict, # Information about the LLM that generated the best/final response
+            "alternatives": list (only when details=True) # List of alternative responses considered in the final round
         }
     """
 )
 async def cort_think_details_mixed_llm_neweval(
-    prompt: Annotated[str, Field(description="AIへの入力プロンプト（必須）")]
+    prompt: Annotated[str, Field(description="Input prompt for the AI (required)")]
 ):
     result = generate_with_mixed_llm(prompt, details=True, neweval=True)
     import yaml
@@ -774,7 +774,7 @@ def initialize_and_run_server():
     # Initialize and run the MCP server.
     import logging as py_logging
     py_logging.info("cort-mcp server starting...")
-    # MCPサーバーを実行
+    # Run the MCP server
     server.run()
 
 def main():
@@ -782,7 +782,7 @@ def main():
     parser = argparse.ArgumentParser(description="Chain-of-Recursive-Thoughts MCP Server/CLI")
     parser.add_argument("--log", choices=["on", "off"], required=True, help="Enable or disable logging (on/off)")
     parser.add_argument("--logfile", type=str, required=False, help="Absolute path to log file (required if --log=on)")
-
+ 
     args = parser.parse_args()
     if args.log == "on" and not args.logfile:
         print("[FATAL] --logfile is required when --log=on", file=sys.stderr)
@@ -797,7 +797,7 @@ def main():
     py_logging.info("cort-mcp main() started")
     try:
         py_logging.info("Server mode: waiting for MCP stdio requests...")
-        # FastMCPを使用してサーバーを起動
+        # Start the server using FastMCP
         initialize_and_run_server()
     except Exception as e:
         py_logging.exception(f"[ERROR] main() failed: {e}")

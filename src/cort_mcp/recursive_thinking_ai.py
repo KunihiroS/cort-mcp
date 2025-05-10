@@ -136,7 +136,7 @@ Respond with just a number between 1 and 5."""
         base_response = self._call_api(messages, temperature=0.7, stream=False)
         current_best = base_response
         logger.info("=" * 50)
-        # ベース応答も履歴に記録（round=0とする）
+        # Record the base response in the history as well (set round=0)
         thinking_history.append({
             "round": 0,
             "llm_prompt": base_llm_prompt,
