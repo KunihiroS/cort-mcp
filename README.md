@@ -1,281 +1,23 @@
-# cort-mcp
+# CoRT MCP Server
 
-Chain-of-Recursive-Thoughts (CORT) MCPサーバー/CLIツール
+This is a Chain-of-Recursive-Thoughts (CORT) MCP server.
+The orignal project is as below, I appreciate so much the original work.
 
----
+> Original: PhialsBasement/Chain-of-Recursive-Thoughts: I made my AI think harder by making it argue with itself repeatedly. It works stupidly well.  
+> https://github.com/PhialsBasement/Chain-of-Recursive-Thoughts
 
-## 特徴
-- OpenAI/OpenRouter API両対応
-- pipx/uvxインストール・即コマンド利用可能
----
+## Features
 
-## ディレクトリ構成
+- CoRT method available via MCP Server that makes AI to think harder by making it argue with itself repeatedly. It works stupidly well.
 
-```
-cort-mcp/
-├── cort_mcp/
-│   ├── __init__.py
-│   ├── recursive_thinking_ai.py
-│   └── server.py
-├── pyproject.toml
-├── README.md
-├── CHANGELOG.md
-└── tests/
-    └── test_server.py
-```
+## Worked check
 
----
-
-## インストール
-
-```
-pipx install .
-# または
-uvx install .
-```
-
----
-
-## ツールインターフェイス定義（MCPツール仕様）
-
----
-
-## Mixed LLM 拡張（多様モデル探索モード）
-
-**概要:**
-従来のCoRT思考フローに「代替案ごとに異なるLLM（モデル＋プロバイダ）をランダム選択する」探索戦略を追加した新ツールです。
-これにより、異種モデルの知見や発想を最大限活用し、より多様な案から最適解を選抜できます。
-
-### mixed LLMツール一覧
-- `cort_think_simple_mixed_llm`
-  履歴や詳細を出力しないシンプルな再帰的思考AI応答（各案ごとにLLMをランダム選択）
-- `cort_think_details_mixed_llm`
-  思考過程や履歴付きの応答（各案ごとにLLMをランダム選択、履歴にも使用モデルを記録）
-
-### mixed LLMで利用されるモデル一覧
-- **OpenAI**
-    - gpt-4.1-mini
-    - gpt-4.1-nano
-    - gpt-4o
-    - o3-mini
-- **OpenRouter**
-    - meta-llama/llama-4-maverick:free
-    - meta-llama/llama-4-scout:free
-    - microsoft/phi-4-reasoning:free
-    - google/gemini-2.0-flash-exp:free
-    - mistralai/mistral-small-3.1-24b-instruct:free
-    - nvidia/llama-3.3-nemotron-super-49b-v1:free
-※API Keyが有効なプロバイダのみ対象となります。
-
-### mixed LLMツールの動作仕様
-- 各代替案ごとに、上記リストからランダムで1つLLM（モデル＋プロバイダ）を選択
-- 生成案ごとに「どのモデル・プロバイダが使われたか」を必ずログに記録
-- detailsモードでは、レスポンスの履歴情報にも「案ごとの使用モデル・プロバイダ」を明示的に含める
-
-### レスポンス例
-```json
-{
-  "alternatives": [
-    {
-      "response": "案1の内容...",
-      "provider": "openai",
-      "model": "gpt-4.1-mini"
-    },
-    {
-      "response": "案2の内容...",
-      "provider": "openrouter",
-      "model": "meta-llama/llama-4-maverick:free"
-    }
-  ],
-  "best": {
-    "response": "ベスト案の内容...",
-    "provider": "openai",
-    "model": "gpt-4o"
-  },
-  "details": "履歴や評価過程（YAML/JSON形式で案ごとのモデル名も記録）"
-}
-```
-
-### ログ出力例
-```
-[INFO] Alternative 1: provider=openai, model=gpt-4.1-mini
-[INFO] Alternative 2: provider=openrouter, model=meta-llama/llama-4-maverick:free
-```
-
-### 注意事項
-- 既存の `cort_think_simple` / `cort_think_details` とは独立した新ツールとして提供
-- APIコスト・レイテンシにご注意ください（複数プロバイダ/モデルを横断的に呼び出します）
-- モデルごとの仕様差やAPI制限により、出力形式や品質が異なる場合があります
-
----
-
-
-> **⚠️ 注意:**
-> オプションパラメータ（`model`や`provider`など）をAI呼び出し時に明示的に`null`や空文字で渡すと、API側でエラーとなる場合があります。
-> 
-> **未指定の場合はパラメータごと省略してください。**
-> 例: Pythonの`None`やJSONの`null`をそのまま渡さず、パラメータ自体を送信しないことを推奨します。
-> 
-> これにより「AI呼び出し時にオプションパラメータへnullを設定し失敗していた問題」を回避できます。
-
-
-### cort.think.simple
-- **説明:** 履歴や詳細を出力しないシンプルな再帰的思考AI応答を返す
-- **パラメータ:**
-    - `prompt` (string, 必須): AIへの入力プロンプト
-    - `model` (string, 任意): 
-利用するLLMモデル名を正確に指定してください。
-- **推奨値（OpenAIの場合）**: `"gpt-4.1-nano"`
-- **推奨値（OpenRouterの場合）**: `"meta-llama/llama-4-maverick:free"`
-- **デフォルトモデル**: `mistralai/mistral-small-3.1-24b-instruct:free`（OpenRouterプロバイダ使用時）
-モデル名は各プロバイダの公式リストに従い、正確に入力してください。
-指定がない場合はプロバイダごとのデフォルトモデルが利用されます。
-
-    - `provider` (string, 任意): 
-利用するAPIプロバイダ名を正確に指定してください。
-- 指定可能値: `"openai"` または `"openrouter"`
-- **デフォルトプロバイダ**: `openrouter`
-プロバイダによって選択可能なモデルが異なるため、モデル名とプロバイダの組み合わせにご注意ください。指定がない場合、自動的にデフォルトプロバイダが利用されます。
-
-    - **戻り値:**
-    - `response` (string): AIの応答
-    - `model` (string): 使用モデル名
-    - `provider` (string): 使用プロバイダー
-
-### cort.think.details
-- **説明:** 思考過程の詳細も含めて返す再帰的思考AIツール
-- **パラメータ:**
-    - `prompt` (string, 必須): AIへの入力プロンプト
-    - `model` (string, 任意): モデル名
-    - `provider` (string, 任意): "openai" または "openrouter"
-- **戻り値:**
-    - `response` (string): AIの応答
-    - `model` (string): 使用モデル名
-    - `provider` (string): 使用プロバイダー
-    - `details` (string): 思考履歴や過程のYAML
-
-#### パラメータ指定とフォールバック処理
-
-本APIでは、`provider` と `model` パラメータの指定に応じて、以下のロジックで実際の使用モデルが決定され、エラー時にはフォールバック処理が行われます。
-
-1.  **プロバイダ (`provider`) の解決**
-    *   **未指定時**: デフォルトプロバイダとして `openrouter` が使用されます。
-    *   **不正な値指定時** (`openai`, `openrouter` 以外): デフォルトプロバイダ `openrouter` にフォールバックします。
-
-2.  **モデル (`model`) の解決**
-    *   **未指定時**:
-        *   解決されたプロバイダが `openrouter` の場合: デフォルトモデル `mistralai/mistral-small-3.1-24b-instruct:free` が使用されます。
-        *   解決されたプロバイダが `openai` の場合: OpenAIのデフォルトモデル（例: `gpt-3.5-turbo`、サーバー側の定義に依存）が使用されます。
-    *   **指定時（プロバイダは有効）**:
-        *   指定されたモデル名が、解決されたプロバイダでそのまま使用されます。
-        *   **重要**: この段階では、指定されたモデル名がプロバイダに実際に存在するかどうかの検証は行われません。
-
-3.  **API呼び出しとエラー時のフォールバック**
-    *   上記ルールで解決されたプロバイダとモデルの組み合わせで、まずAPI呼び出しが試行されます。
-    *   **API呼び出し時にエラーが発生した場合**（例: 指定したモデルがプロバイダに存在しない、APIキー認証エラーなど）:
-        *   **条件1**: エラーが発生した最初の試行のプロバイダが `openai` では**ない**こと。
-        *   **条件2**: 環境変数 `OPENAI_API_KEY` がシステムに設定されていること。
-        *   上記の2つの条件を**両方とも満たす場合**、システムは自動的に **`openai` プロバイダのデフォルトモデル** を使用して処理を再試行します（これがフォールバック処理です）。
-        *   上記条件のいずれか、または両方を満たさない場合（例: 最初の試行が `openai` だった、または `OPENAI_API_KEY` が未設定）、最初のエラーがそのまま最終結果として返され、この種のフォールバックは行われません。
-
-**環境変数に関する注意:**
-*   `openrouter` を利用する場合、`OPENROUTER_API_KEY` が必要です。
-*   `openai` を利用する場合、または上記フォールバック機能を利用する可能性がある場合は `OPENAI_API_KEY` が必要です。
-*   該当するAPIキーが設定されていない場合、API呼び出しは失敗します（フォールバック条件によってはOpenAIへのフォールバックも失敗します）。
-
----
-
-## APIキー設定
-- OpenAI: `OPENAI_API_KEY` 環境変数で指定
-- OpenRouter: `OPENROUTER_API_KEY` 環境変数で指定
-
----
-
-## 進捗・現状レポート（2025-05-08 更新）
-### ✅ MCPサーバー起動・MCP Hostからの呼び出し成功
-- それほど長くない入力の応答に約1~2分程度かかる
-### ✅ logging機能の動作確認
-- 引数によるlog=on/offの動作確認
-- 引数による指定PATHへlogfile保存確認
-### ✅ 思考ラウンドの詳細出力確認
-- cort_think_detailsのdetails出力のYAML形式の内容確認
-- 各ラウンドのLLMからの出力内容を出力
-### ✅ OpenAI/OpenRouter両対応のAPI呼び出し
-- デフォルトは「openrouter / mistralai/mistral-small-3.1-24b-instruct:free」です
-- OpenAIはAPIキーが無い場合の自動フォールバック先として利用されます
-- 動作確認済み
-
-#### 📝 ユーザー追加分TODO
-- .log 出力の詳細化
-- 評価プロンプトの見直し
-- README刷新 (内容の精緻化、オリジナルリポジトリに関する言及、英語化)
-- コードコメントの英語化
-- pipx起動対応
-- PyPI公開
----
-
-## コアロジック改変履歴（recursive_thinking_ai.py）
-
-- オリジナル: [PhialsBasement/Chain-of-Recursive-Thoughts](https://github.com/PhialsBasement/Chain-of-Recursive-Thoughts)
-- 本プロジェクトでは以下の主な改変を実施：
-
-### 主な改良点
-
-1. **プロバイダ対応の拡張**
-   - デフォルトは「openrouter / mistralai/mistral-small-3.1-24b-instruct:free」
-   - OpenAIはAPIキーが無い場合の自動フォールバック先
-   - OpenRouterのみの対応から、OpenAIとOpenRouter両対応のAPI呼び出しに変更
-   - `provider`引数で簡単に切り替え可能
-
-2. **詳細な思考履歴の記録**
-   - 各ラウンドでのLLMプロンプト・レスポンス履歴（thinking_history）を詳細に記録
-   - details toolのレスポンスとして構造化されたYAML形式で返せるように拡張
-   - ラウンドごとの選択プロセスが透明化
-
-3. **エラー処理とログ記録の強化**
-   - APIエラー時のフォールバックメカニズムを追加
-   - 環境変数によるAPIキー管理を追加
-   - 外部ログ機能との連携強化
-
-4. **MCPサーバー向け最適化**
-   - サーバー連携用のインターフェースに特化
-   - CLIインターフェースや対話型機能を削除し、APIとして利用に特化
-   - ストリーミング処理を簡略化し、完了後のレスポンス取得に最適化
-   - ファイル保存機能を削除し、レスポンス返却に集中
-
-
----
-
-### 起動例
-```sh
-$ cort-mcp
-```
-
-### ログ出力例
-```
-cort-mcp main() started
-Server mode: waiting for MCP stdio requests...
-Using selector: EpollSelector
-Starting stdio_server session...
-stdio_server session established. Running server.run...
-```
-
----
-
-## 開発・保守
-- AIロジックは `cort_mcp/recursive_thinking_ai.py` に一元化
-- CLI/サーバー切替・ツール登録は `cort_mcp/server.py` で管理
-- テストは `tests/` 配下
-
----
+Roo code / Cline
 
 ## MCP Host Configuration
 
-When running this MCP Server, you **must explicitly specify the log output mode and (if enabled) the absolute log file path via command-line arguments**.
-
-- `--log=off` : Disable all logging (no logs are written)
-- `--log=on --logfile=/absolute/path/to/logfile.log` : Enable logging and write logs to the specified absolute file path
-- Both arguments are **required** when logging is enabled. The server will exit with an error if either is missing, the path is not absolute, or if invalid values are given.
+300 sec timeout recommend. (may sometime take longer time than expected)
+OPENROUTER_API_KEY is required. https://openrouter.ai/
 
 ### Example: Logging Disabled
 ```json
@@ -283,7 +25,8 @@ When running this MCP Server, you **must explicitly specify the log output mode 
   "command": "pipx",
   "args": ["run", "cort-mcp", "--log=off"],
   "env": {
-    "OPENAI_API_KEY": "{apikey}"
+    "OPENAI_API_KEY": "{apikey}",
+    "OPENROUTER_API_KEY": "{apikey}"
   }
 }
 ```
@@ -294,10 +37,15 @@ When running this MCP Server, you **must explicitly specify the log output mode 
   "command": "pipx",
   "args": ["run", "cort-mcp", "--log=on", "--logfile=/workspace/logs/cort-mcp.log"],
   "env": {
-    "OPENAI_API_KEY": "{apikey}"
+    "OPENAI_API_KEY": "{apikey}",
+    "OPENROUTER_API_KEY": "{apikey}"
   }
 }
 ```
+
+- `--log=off` : Disable all logging (no logs are written)
+- `--log=on --logfile=/absolute/path/to/logfile.log` : Enable logging and write logs to the specified absolute file path
+- Both arguments are **required** when logging is enabled. The server will exit with an error if either is missing, the path is not absolute, or if invalid values are given.
 
 > **Note:**
 > - When logging is enabled, logs are written **only** to the specified absolute file path. Relative paths or omission of `--logfile` will cause an error.
@@ -311,53 +59,168 @@ When running this MCP Server, you **must explicitly specify the log output mode 
   "command": "pipx",
   "args": ["run", "cort-mcp==x.y.z", "--log=off"],
   "env": {
-    "OPENAI_API_KEY": "{apikey}"
+    "OPENAI_API_KEY": "{apikey}",
+    "OPENROUTER_API_KEY": "{apikey}"
   }
 }
 ```
 
-CoRT core logic diagram
+## Available tools
+
+- {toolname}.simple
+No details, output only final selected alternative.
+- {toolname}.details
+Include details of LLM response history.
+- {toolname}.mixed.llm
+Multi LLM inference.
+- {toolname}.neweval
+New evaluation prompt.
+
+Check the below details.
+
+## What is CoRT?
 ```mermaid
-
 flowchart TB
-    Start[ユーザー質問] --> DetermineRounds[ラウンド数決定\n_determine_thinking_rounds\n1-5ラウンド]
-    DetermineRounds --> InitialResponse[初期回答生成\ntemperature=0.7]
-    
-    InitialResponse --> Round1[ラウンド1開始]
-    
-    subgraph "ラウンド1"
-        Round1 --> R1A1[代替案1作成\ntemperature=0.7]
-        Round1 --> R1A2[代替案2作成\ntemperature=0.8]
-        Round1 --> R1A3[代替案3作成\ntemperature=0.9]
-        
-        InitialResponse & R1A1 & R1A2 & R1A3 --> R1Eval[評価\ntemperature=0.2]
-        R1Eval --> R1Best[ラウンド1最良回答]
-    end
-    
-    R1Best --> Round2[ラウンド2開始]
-    
-    subgraph "ラウンド2"
-        Round2 --> R2A1[代替案1作成\ntemperature=0.7]
-        Round2 --> R2A2[代替案2作成\ntemperature=0.8]
-        Round2 --> R2A3[代替案3作成\ntemperature=0.9]
-        
-        R1Best & R2A1 & R2A2 & R2A3 --> R2Eval[評価\ntemperature=0.2]
-        R2Eval --> R2Best[ラウンド2最良回答]
-    end
-    
-    R2Best --> Remaining[残りのラウンド\n同じプロセスを繰り返す]
-    Remaining --> FinalBest[最終ラウンド最良回答]
-    
-    FinalBest --> FinalResponse[最終回答]
-    
-    classDef eval fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef best fill:#bfb,stroke:#333,stroke-width:2px;
-    class R1Eval,R2Eval eval;
-    class R1Best,R2Best,FinalBest best;
+    Start[User query] --> DetermineRounds[AI determine thinking rounds]
+    DetermineRounds -->|determine_thinking_rounds 1-5 rounds| InitialResponse[Initial response\ntemperature=0.7]
 
+    InitialResponse --> Round1[Starting round1]
+
+    subgraph "Round 1"
+        Round1 --> R1A1[Create alternative 1 temperature=0.7]
+        Round1 --> R1A2[Create alternative 2 temperature=0.8]
+        Round1 --> R1A3[Create alternative 3 temperature=0.9]
+
+        InitialResponse & R1A1 & R1A2 & R1A3 --> R1Eval[Evaluation temperature=0.2]
+        R1Eval --> R1Best[Round 1 best response]
+    end
+
+    R1Best --> Round2[Starting round2]
+
+    subgraph "Round 2"
+        Round2 --> R2A1[Create alternative 1 temperature=0.7]
+        Round2 --> R2A2[Create alternative 2 temperature=0.8]
+        Round2 --> R2A3[Create alternative 3 temperature=0.9]
+
+        R1Best & R2A1 & R2A2 & R2A3 --> R2Eval[Evaluation temperature=0.2]
+        R2Eval --> R2Best[Round 2 best response]
+    end
+
+    R2Best --> Remaining[Remaining rounds Repeat the same process]
+    Remaining --> FinalBest[Final round best response]
+
+    FinalBest --> FinalResponse[Final response]
 ```
 
-## ライセンス
-MIT
+## Major enhancement from the original
 
-何か問題や要望があれば、READMEまたはissue等でお知らせください。
+There are several enhancement from original CoRT methodology.
+1. **Multi LLM inference**: Each alternative is generated with a different LLM (model + provider) randomly.
+2. **Evaluation enhancement**: The prompt evaluation is updated by adding a prompt that asks the AI to explain its reasoning. (Original prompt is available by tools)
+
+### Multi LLM inference
+
+**Overview:**
+This is a new tool that adds an exploration strategy of "randomly selecting different LLM (model + provider) for each alternative" to the conventional CoRT thinking flow.
+This allows you to maximize the use of the knowledge and ideas of heterogeneous models and select the optimal solution from a wider range of options.
+
+- the function is available by mixed llm tools.
+
+### The list of mixed LLMs
+
+- Reasonably light weight models are selected for better user experience.
+
+```
+MIXED_LLM_LIST = [
+    {"provider": "openai", "model": "gpt-4.1-mini"},
+    {"provider": "openai", "model": "gpt-4.1-nano"},
+    {"provider": "openai", "model": "gpt-4o-mini"},
+    {"provider": "openrouter", "model": "meta-llama/llama-4-scout:free"},
+    {"provider": "openrouter", "model": "google/gemini-2.0-flash-exp:free"},
+    {"provider": "openrouter", "model": "mistralai/mistral-small-3.1-24b-instruct:free"},
+    {"provider": "openrouter", "model": "google/gemma-3-27b-it:free"},
+    {"provider": "openrouter", "model": "nousresearch/deephermes-3-mistral-24b-preview:free"},
+]
+```
+
+### mixed LLMs tool process.
+
+- For each alternative, randomly select one LLM (model + provider) from the above list
+- Always record in the log "which model and provider was used" for each generated alternative
+- In details mode, explicitly include "model and provider used for each alternative" in the response history information
+
+## Evaluation enhancement
+
+**Overview:**
+Changed the evaluation prompt richer. (Original prompt is available by tools)
+Use the prompt by {toolname}.neweval that asks the AI to explain its reasoning.
+
+### Original prompt
+
+```
+f"""Original message: {prompt}
+Evaluate these responses and choose the best one:
+Current best: {current_best}
+Alternatives:
+{chr(10).join([f"{i+1}. {alt}" for i, alt in enumerate(alternatives)])}
+Which response best addresses the original message? Consider accuracy, clarity, and completeness.
+First, respond with ONLY 'current' or a number (1-{len(alternatives)}).
+Then on a new line, explain your choice in one sentence."""
+```
+
+### Enhanced prompt
+
+```
+f""" Original message: {prompt}
+You are an expert evaluator tasked with selecting the response that best fulfills the user's true needs, considering multiple perspectives.
+Current best: {current_best}
+Alternatives: {chr(10).join([f"{i+1}. {alt}" for i, alt in enumerate(alternatives)])}
+Please follow this evaluation process:
+Intent Analysis: What is the user REALLY seeking? What underlying needs might be present beyond the surface question?
+Context Consideration: What possible situations or backgrounds could this question arise from?
+Diversity Assessment: Does the response consider different viewpoints or possible interpretations?
+Practicality Evaluation: How useful would the response be in the user's real-world context?
+Consistency Check: Is the response internally consistent and logically coherent?
+For each response (including the current best):
+Does it solve the user's TRUE problem?
+Does it balance accuracy and usefulness?
+Does it avoid unnecessary assumptions or biases?
+Is it flexible enough to apply in various contexts or situations?
+Does it account for exceptions or special cases?
+After completing your evaluation:
+Indicate your choice with ONLY 'current' or a number (1-{len(alternatives)}).
+On the next line, explain specifically why this response best meets the user's true needs. """
+```
+
+### Parameter Specification and Fallback Processing
+
+This API determines the actual model to be used based on the specified `provider` and `model` parameters, with fallback processing in case of errors.
+
+1. **Provider (`provider`) Resolution**
+   - **When unspecified**: `openrouter` is used as the default provider.
+   - **When an invalid value is specified** (other than `openai` or `openrouter`): Falls back to the default provider `openrouter`.
+
+2. **Model (`model`) Resolution**
+   - **When unspecified**:
+     - If the resolved provider is `openrouter`: The default model `mistralai/mistral-small-3.1-24b-instruct:free` is used.
+     - If the resolved provider is `openai`: The default OpenAI model is used.
+   - **When specified (with a valid provider)**:
+     - The specified model name is used as-is with the resolved provider.
+     - **Important**: At this stage, it is not verified whether the specified model name actually exists with the provider.
+
+3. **API Call and Error Fallback**
+   - An API call is first attempted with the provider and model combination resolved by the above rules.
+   - **If an error occurs during the API call** (e.g., the specified model does not exist with the provider, API key authentication error, etc.):
+     - **Condition 1**: The provider of the first attempted call is **not** `openai`.
+     - **Condition 2**: The environment variable `OPENAI_API_KEY` is set in the system.
+     - If **both** of the above conditions are met, the system automatically **retries the process using the default model of the `openai` provider** (this is the fallback processing).
+     - If either or both of the above conditions are not met (e.g., the first attempt was with `openai`, or `OPENAI_API_KEY` is not set), the initial error is returned as the final result, and this type of fallback does not occur.
+
+**Notes on Environment Variables:**
+- `OPENROUTER_API_KEY` is required to use `openrouter`.
+- `OPENAI_API_KEY` is required to use `openai` or to utilize the above fallback feature.
+- If the corresponding API key is not set, the API call will fail (the fallback to OpenAI will also fail depending on the fallback conditions).
+
+## License
+MIT
+> Go wild with it
