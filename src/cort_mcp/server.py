@@ -503,11 +503,12 @@ async def cort_think_details_neweval(
 # --- Mixed LLM List Definition ---
 MIXED_LLM_LIST = [
     {"provider": "openai", "model": "gpt-4.1-nano"},
-    {"provider": "openai", "model": "gpt-4o-mini"},
     {"provider": "openrouter", "model": "meta-llama/llama-4-scout:free"},
     {"provider": "openrouter", "model": "google/gemini-2.0-flash-exp:free"},
     {"provider": "openrouter", "model": "mistralai/mistral-small-3.1-24b-instruct:free"},
     {"provider": "openrouter", "model": "meta-llama/llama-3.2-3b-instruct:free"},
+    {"provider": "openrouter", "model": "mistralai/mistral-7b-instruct:free"},
+    {"provider": "openrouter", "model": "thudm/glm-4-9b:free"},
 ]
 
 def get_available_mixed_llms():

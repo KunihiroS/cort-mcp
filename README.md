@@ -133,16 +133,17 @@ This allows you to maximize the use of the knowledge and ideas of heterogeneous 
 
 ### The list of LLMs
 
-- Reasonably lighter weight models are selected for better user experience.
+- Reasonably lighter weight and faster through put models are selected for better user experience.
 
 ```
 MIXED_LLM_LIST = [
     {"provider": "openai", "model": "gpt-4.1-nano"},
-    {"provider": "openai", "model": "gpt-4o-mini"},
     {"provider": "openrouter", "model": "meta-llama/llama-4-scout:free"},
     {"provider": "openrouter", "model": "google/gemini-2.0-flash-exp:free"},
     {"provider": "openrouter", "model": "mistralai/mistral-small-3.1-24b-instruct:free"},
     {"provider": "openrouter", "model": "meta-llama/llama-3.2-3b-instruct:free"},
+    {"provider": "openrouter", "model": "mistralai/mistral-7b-instruct:free"},
+    {"provider": "openrouter", "model": "thudm/glm-4-9b:free"},
 ]
 ```
 
