@@ -177,3 +177,5 @@ config.json
 
 .vscode/
 .vscode-test/
+
+CHANGELOG.md
