@@ -1,5 +1,6 @@
 import sys
 import os
+import traceback
 import argparse
 import yaml
 import json
@@ -52,82 +53,98 @@ DEFAULT_PROVIDER = "openrouter"
 
 # --- Logging Setup ---
 def setup_logging(log: str, logfile: str):
+    print(f"[DEBUG_SETUP] setup_logging called with log='{log}', logfile='{logfile}'", file=sys.stderr)
     if log == "on":
         if not logfile or not logfile.startswith("/"):
-            print("[FATAL] --logfile must be an absolute path when --log=on", file=sys.stderr)
+            print("[FATAL_SETUP] --logfile must be an absolute path when --log=on", file=sys.stderr)
             sys.exit(1)
+
         log_dir = os.path.dirname(logfile)
-        print(f"[DEBUG] Attempting to use log directory: {log_dir}")
+        print(f"[DEBUG_SETUP] Attempting to use log directory: {log_dir}", file=sys.stderr)
         if not os.path.exists(log_dir):
-            print(f"[DEBUG] Log directory {log_dir} does not exist. Attempting to create.")
+            print(f"[DEBUG_SETUP] Log directory {log_dir} does not exist. Attempting to create.", file=sys.stderr)
             try:
                 os.makedirs(log_dir, exist_ok=True)
-                print(f"[INFO] Successfully created log directory: {log_dir}")
+                print(f"[INFO_SETUP] Successfully created log directory: {log_dir}", file=sys.stderr)
             except Exception as e:
-                print(f"[FATAL] Failed to create log directory: {log_dir} error={e}", file=sys.stderr)
+                print(f"[FATAL_SETUP] Failed to create log directory: {log_dir} error={e}", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
                 sys.exit(1)
         else:
-            print(f"[DEBUG] Log directory {log_dir} already exists.")
+            print(f"[DEBUG_SETUP] Log directory {log_dir} already exists.", file=sys.stderr)
+        if os.path.exists(log_dir) and not os.access(log_dir, os.W_OK | os.X_OK):
+            print(f"[WARNING_SETUP] Log directory {log_dir} exists but may not be writable/executable by current user (UID: {os.getuid()})!", file=sys.stderr)
 
         try:
-            print(f"[DEBUG] Attempting to initialize FileHandler with logfile: {logfile}")
-            # --- Full handler initialization ---
-            # Use the module-level py_logging
+            print(f"[DEBUG_SETUP] Attempting to initialize FileHandler with logfile: {logfile}", file=sys.stderr)
             root_logger = py_logging.getLogger()
+            print(f"[DEBUG_SETUP] Root logger obtained: {root_logger}. Current handlers: {root_logger.handlers}", file=sys.stderr)
             for handler in root_logger.handlers[:]:
+                print(f"[DEBUG_SETUP] Removing handler {handler} from root logger.", file=sys.stderr)
                 root_logger.removeHandler(handler)
-            root_logger.handlers.clear()
             root_logger.setLevel(py_logging.DEBUG)
+            print(f"[DEBUG_SETUP] Root logger handlers cleared and level set to DEBUG.", file=sys.stderr)
 
             # Add only FileHandler to root logger
             file_handler = py_logging.FileHandler(logfile, mode="a", encoding="utf-8")
-            print(f"[DEBUG] FileHandler initialized for {logfile}. Attempting to add to root_logger.")
             file_handler.setLevel(py_logging.DEBUG)
-            formatter = py_logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+            formatter = py_logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             file_handler.setFormatter(formatter)
             root_logger.addHandler(file_handler)
+            print(f"[DEBUG_SETUP] FileHandler added to root logger. Root logger handlers: {root_logger.handlers}", file=sys.stderr)
 
             # Also add StreamHandler (stdout)
-            stream_handler = py_logging.StreamHandler(sys.stdout)
-            print(f"[DEBUG] StreamHandler initialized. Attempting to add to root_logger.")
+            stream_handler = py_logging.StreamHandler(sys.stderr) # Output debug to stderr
+            print(f"[DEBUG_SETUP] StreamHandler (stderr) initialized. Attempting to add to root_logger.", file=sys.stderr)
             stream_handler.setLevel(py_logging.DEBUG)
             stream_handler.setFormatter(formatter)
             root_logger.addHandler(stream_handler)
+            print(f"[DEBUG_SETUP] StreamHandler (stderr) added to root logger. Root logger handlers: {root_logger.handlers}", file=sys.stderr)
 
             # Explicitly call flush
-            file_handler.flush()
-            print(f"[DEBUG] FileHandler flushed for {logfile}.")
+            # file_handler.flush() # Typically not needed immediately, OS handles buffering
+            # print(f"[DEBUG_SETUP] FileHandler flushed for {logfile}.", file=sys.stderr)
 
             # Set global logger as well
             specific_logger = py_logging.getLogger("cort-mcp-server")
-            specific_logger.handlers.clear()
+            # specific_logger.handlers.clear() # Not needed if propagate is True and root is configured
             specific_logger.setLevel(py_logging.DEBUG)
-            specific_logger.addHandler(file_handler)
-            specific_logger.addHandler(stream_handler)
-            specific_logger.propagate = False
-            print(f"[DEBUG] Specific logger 'cort-mcp-server' configured.")
+            # specific_logger.addHandler(file_handler) # Already on root
+            # specific_logger.addHandler(stream_handler) # Already on root
+            specific_logger.propagate = True # Let root logger handle it
+            print(f"[DEBUG_SETUP] Specific logger 'cort-mcp-server' configured. Propagate: {specific_logger.propagate}. Handlers: {specific_logger.handlers}. Effective level: {specific_logger.getEffectiveLevel()}", file=sys.stderr)
 
-            specific_logger.debug(f"=== MCP Server log initialized: {logfile} ===")
-            print(f"[INFO] MCP Server log initialized (print): {logfile}") # 明示的にprint
+            py_logging.debug("[DEBUG_SETUP_TEST_ROOT] Root logger test: Logging configured.")
+            specific_logger.debug(f"[DEBUG_SETUP_TEST_SPECIFIC] Specific logger 'cort-mcp-server' test: Log initialized for {logfile}")
+            print(f"[INFO_SETUP] MCP Server log initialization attempted for (print): {logfile}", file=sys.stderr)
+
             if os.path.exists(logfile):
-                print(f"[INFO] Log file {logfile} exists and is writable after FileHandler setup (print).")
-                specific_logger.info(f"Log file {logfile} exists and is writable after FileHandler setup.") # ロガー経由でも出力
-            else:
-                print(f"[WARNING] Log file {logfile} was NOT created by FileHandler (check permissions or other issues) (print).")
-                specific_logger.warning(f"Log file {logfile} was NOT created by FileHandler (check permissions or other issues).")
+                print(f"[INFO_SETUP] Log file {logfile} exists after FileHandler setup (print).", file=sys.stderr)
+                specific_logger.info(f"Log file {logfile} exists after FileHandler setup.")
+                try:
+                    with open(logfile, "a", encoding="utf-8") as f_test:
+                        f_test.write(f"TEST_WRITE_SUCCESS at {py_logging.Formatter('%(asctime)s').format(py_logging.LogRecord(name='test-write', level=py_logging.INFO, pathname='', lineno=0, msg='', args=(), exc_info=None, func=''))}\n")
+                    print(f"[INFO_SETUP] Successfully wrote a test line to {logfile}.", file=sys.stderr)
+                except Exception as e_write:
+                    print(f"[ERROR_SETUP] Failed to write a test line to {logfile}: {e_write}", file=sys.stderr)
+                    specific_logger.error(f"Failed to write a test line to {logfile}: {e_write}")
 
+            else:
+                print(f"[WARNING_SETUP] Log file {logfile} was NOT created or is not visible after FileHandler setup (print).", file=sys.stderr)
+                specific_logger.warning(f"Log file {logfile} was NOT created or is not visible after FileHandler setup.")
 
             return specific_logger
         except Exception as e:
-            print(f"[FATAL] Failed to create log file or setup handler: {logfile} error={e}", file=sys.stderr)
+            print(f"[FATAL_SETUP] Failed to create log file or setup handler: {logfile} error={e}", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
             sys.exit(1)
     elif log == "off":
         # Completely disable logging functionality
-        py_logging.disable(py_logging.CRITICAL)
-        print("[INFO] Logging disabled (--log=off)")
+        py_logging.disable(py_logging.CRITICAL + 1) # Disable all levels including CRITICAL
+        print("[INFO_SETUP] Logging disabled (--log=off)", file=sys.stderr)
         return None
     else:
-        print("[FATAL] --log must be 'on' or 'off'", file=sys.stderr)
+        print("[FATAL_SETUP] --log must be 'on' or 'off'", file=sys.stderr)
         sys.exit(1)
 
 def resolve_model_and_provider(params):
@@ -782,54 +799,67 @@ async def cort_think_details_mixed_llm_neweval(
 
 def initialize_and_run_server():
     # Initialize and run the MCP server.
-    import logging as py_logging
-    py_logging.info("cort-mcp server starting...")
+    # Logging should be configured by setup_logging by now.
+    # We can get the logger instance.
+    logger = py_logging.getLogger("cort-mcp-server")
+    if not logger.handlers and py_logging.getLogger().hasHandlers(): # Check if specific has no handlers but root does
+        logger = py_logging.getLogger() # Fallback to root if specific has no handlers (and propagate is true)
+        logger.info("cort-mcp server starting... (using root logger for this message in initialize_and_run_server)")
+    else:
+        logger.info("cort-mcp server starting... (using 'cort-mcp-server' logger in initialize_and_run_server)")
+
     # Run the MCP server
     server.run()
 
 def main():
     parser = argparse.ArgumentParser(description="Chain-of-Recursive-Thoughts MCP Server/CLI")
     parser.add_argument("--log", choices=["on", "off"], required=True, help="Enable or disable logging (on/off)")
-    parser.add_argument("--logfile", type=str, required=False, help="Absolute path to log file (required if --log=on)")
+    parser.add_argument("--logfile", type=str, default=None, help="Absolute path to log file (required if --log=on)")
  
     args = parser.parse_args()
+
+    print(f"[DEBUG_MAIN] Parsed arguments: log='{args.log}', logfile='{args.logfile}'", file=sys.stderr)
+
     if args.log == "on" and not args.logfile:
-        print("[FATAL] --logfile is required when --log=on", file=sys.stderr)
+        print("[FATAL_MAIN] --logfile is required when --log=on", file=sys.stderr)
         sys.exit(1)
-    if args.log == "on" and not args.logfile.startswith("/"):
-        print("[FATAL] --logfile must be an absolute path when --log=on", file=sys.stderr)
+    if args.log == "on" and args.logfile and not os.path.isabs(args.logfile): # Check if logfile is not None
+        print(f"[FATAL_MAIN] --logfile must be an absolute path when --log=on. Received: '{args.logfile}'", file=sys.stderr)
         sys.exit(1)
     
     # Call setup_logging to configure logging based on arguments.
-    # This function will configure the root logger and a specific logger 'cort-mcp-server'.
-    # It returns the specific logger instance, or None if logging is off.
+    print(f"[DEBUG_MAIN] Calling setup_logging with log='{args.log}', logfile='{args.logfile}'", file=sys.stderr)
     logger = setup_logging(args.log, args.logfile)
-    
-    # The module-level 'py_logging' (alias for 'logging') is used by other functions.
-    # 'setup_logging' has already configured the necessary handlers on the root logger
-    # or the 'cort-mcp-server' logger, so other parts of the code using
-    # py_logging.getLogger('cort-mcp-server') or py_logging.getLogger() will get these settings.
+    print(f"[DEBUG_MAIN] setup_logging returned: {logger}", file=sys.stderr)
 
     if logger: # If setup_logging returned a logger instance (i.e., log was 'on')
-        logger.info("cort-mcp main() started")
+        logger.info("cort-mcp main() started, using 'cort-mcp-server' logger.")
+        # Test root logger as well, if specific logger is different
+        if logger is not py_logging.getLogger():
+             py_logging.info("cort-mcp main() started, test message via root logger.")
     elif args.log == "on": # Should not happen if setup_logging exits on error
-        print("[ERROR] Logger was not configured by setup_logging despite --log=on.", file=sys.stderr)
-
+        print("[ERROR_MAIN] Logger was not configured by setup_logging despite --log=on. Check stderr for setup_logging messages.", file=sys.stderr)
+    else: # log == "off"
+        print("[INFO_MAIN] Logging is off. No logs will be generated by the application.", file=sys.stderr)
 
     try:
         if logger:
             logger.info("Server mode: waiting for MCP stdio requests...")
         elif args.log == "on": # Log was on, but logger is None (error in setup_logging)
-            print("[INFO] Server mode: waiting for MCP stdio requests... (logger not fully available)", file=sys.stderr)
+            print("[INFO_MAIN] Server mode: waiting for MCP stdio requests... (logger not fully available)", file=sys.stderr)
+        else: # log == "off"
+            print("[INFO_MAIN] Server mode: waiting for MCP stdio requests... (logging is off)", file=sys.stderr)
+
         # Start the server using FastMCP
         initialize_and_run_server()
     except Exception as e:
         if logger:
-            logger.exception(f"[ERROR] main() failed: {e}")
+            logger.exception(f"[ERROR_MAIN] main() unhandled exception: {e}")
         else:
             # Fallback if logger is not available
-            print(f"[FATAL ERROR] main() failed: {e}", file=sys.stderr)
-        return 1
+            print(f"[FATAL_ERROR_MAIN] main() unhandled exception: {e}", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

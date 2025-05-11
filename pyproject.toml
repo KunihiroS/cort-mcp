@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cort-mcp"
-version = "0.2.1"
+version = "0.2.2"
 description = "Chain-of-Recursive-Thoughts MCP Server"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.scripts]
-cort-mcp = "cort_mcp.server:initialize_and_run_server"
+cort-mcp = "cort_mcp.server:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
