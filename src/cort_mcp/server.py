@@ -507,7 +507,6 @@ MIXED_LLM_LIST = [
     {"provider": "openrouter", "model": "google/gemini-2.0-flash-exp:free"},
     {"provider": "openrouter", "model": "mistralai/mistral-small-3.1-24b-instruct:free"},
     {"provider": "openrouter", "model": "meta-llama/llama-3.2-3b-instruct:free"},
-    {"provider": "openrouter", "model": "mistralai/mistral-7b-instruct:free"},
     {"provider": "openrouter", "model": "thudm/glm-4-9b:free"},
 ]
 
