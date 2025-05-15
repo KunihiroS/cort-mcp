@@ -1,4 +1,5 @@
 # CoRT MCP Server
+[![smithery badge](https://smithery.ai/badge/@KunihiroS/cort-mcp)](https://smithery.ai/server/@KunihiroS/cort-mcp)
 
 This is a Chain-of-Recursive-Thoughts (CORT) MCP server.
 The orignal project is as below, I appreciate so much the original work.
