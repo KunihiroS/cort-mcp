@@ -1,0 +1,42 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - openrouterApiKey
+    properties:
+      openrouterApiKey:
+        type: string
+        description: API key for OpenRouter
+      openaiApiKey:
+        type: string
+        description: API key for OpenAI (optional)
+      logEnabled:
+        type: boolean
+        default: false
+        description: Enable logging
+      logFile:
+        type: string
+        description: Absolute path to log file (required if logging enabled)
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => {
+      const args = [];
+      if (config.logEnabled) {
+        args.push(`--log=on`, `--logfile=${config.logFile}`);
+      } else {
+        args.push(`--log=off`);
+      }
+      const env = { OPENROUTER_API_KEY: config.openrouterApiKey };
+      if (config.openaiApiKey) env.OPENAI_API_KEY = config.openaiApiKey;
+      return { command: 'cort-mcp', args, env };
+    }
+  exampleConfig:
+    openrouterApiKey: your_openrouter_api_key_here
+    openaiApiKey: your_openai_api_key_here
+    logEnabled: false
+    logFile: /absolute/path/to/logfile.log
